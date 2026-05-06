@@ -15,221 +15,355 @@
     }
     
     body {
-      background: #1a1a00;
-      color: #fff;
+      background: #0a0a0a;
+      color: #e0e0e0;
       font-family: 'VT323', monospace;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       min-height: 100vh;
-      overflow: hidden;
-      margin: 0;
-    }
-    
-    #game-ui {
-      position: absolute;
-      top: 20px;
-      font-size: 2rem;
-      color: #ffcc00;
-      text-shadow: 2px 2px 0 #000;
-      pointer-events: none;
-    }
-    
-    #gameCanvas {
-      background: #222;
-      border: 4px solid #ffcc00;
-      box-shadow: 0 0 20px rgba(255, 204, 0, 0.3);
-      cursor: crosshair;
-    }
-    
-    .screen {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.8);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      text-align: center;
-      gap: 20px;
-      z-index: 10;
+      padding: 20px;
+      overflow: hidden;
     }
     
     h1 {
-      font-size: 3rem;
+      font-size: 2.5rem;
       color: #ffcc00;
-      text-shadow: 2px 2px 0 #000;
+      text-shadow: 0 0 10px #ffcc0066;
+      margin-bottom: 10px;
     }
     
-    p {
+    .score {
       font-size: 1.5rem;
-      color: #ccc;
+      color: #888;
+      margin-bottom: 15px;
+    }
+    
+    #gameCanvas {
+      border: 2px solid #333;
+      background: #111;
+      display: block;
+    }
+    
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 5px;
+      margin-top: 20px;
     }
     
     .btn {
-      background: #ffcc00;
-      color: #000;
-      border: none;
-      padding: 15px 30px;
-      font-family: inherit;
-      font-size: 1.5rem;
+      background: #1a1a1a;
+      border: 2px solid #333;
+      color: #888;
+      font-size: 2rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      border-radius: 5px;
+      user-select: none;
+      -webkit-user-select: none;
       transition: all 0.1s;
     }
     
     .btn:active {
-      transform: scale(0.95);
+      background: #333;
+      border-color: #ffcc00;
+      color: #ffcc00;
+    }
+    
+    .btn-empty {
+      visibility: hidden;
+    }
+    
+    .screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      padding: 30px;
+      border: 2px solid #ffcc00;
+      text-align: center;
+      display: none;
+      z-index: 10;
+      width: 280px;
+    }
+    
+    .screen.active {
+      display: block;
+    }
+    
+    .screen h2 {
+      color: #ffcc00;
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+    
+    #gameOver h2 {
+      color: #ff4444;
+    }
+    
+    .screen p {
+      font-size: 1.3rem;
+      color: #888;
+      margin-bottom: 20px;
+      line-height: 1.3;
+    }
+    
+    .btn-action {
+      background: #ffcc00;
+      color: #0a0a0a;
+      border: none;
+      padding: 12px 30px;
+      font-family: inherit;
+      font-size: 1.5rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+    .btn-action:hover {
+      background: #ffdd33;
+    }
+    
+    .container {
+      position: relative;
     }
   </style>
 </head>
 <body>
-  <div id="game-ui">PISTEET: <span id="score">0</span></div>
+  <h1>JUUSTOKIIRE</h1>
+  <div class="score">JUUSTOT: <span id="score">0</span></div>
   
-  <canvas id="gameCanvas" width="320" height="480"></canvas>
-  
-  <div id="start-screen" class="screen">
-    <h1>JUUSTOKIIRE</h1>
-    <p>Nappaa kaikki juustot <br> ennen kuin ne katoavat!</p>
-    <button class="btn" onclick="startGame()">ALOITA</button>
-  </div>
-  
-  <div id="game-over-screen" class="screen" style="display:none">
-    <h1>GAME OVER</h1>
-    <p>Sait <span id="final-score">0</span> juustoa!</p>
-    <button class="btn" onclick="restartGame()">UUDESTAAN</button>
-  </div>
+  <div class="container">
+    <canvas id="gameCanvas" width="320" height="320"></canvas>
+    
+    <div class="screen active" id="startScreen">
+      <h2>VALMIINA?</h2>
+      <p>Kerää juustoa ja väistä kissoja! Ohjaa rottasi nuolilla.</p>
+      <button class="btn-action" onclick="startGame()">ALOITA</button>
+    </div>
 
+    <div class="screen" id="gameOver">
+      <h2>NAAPPAUKSET</h2>
+      <p id="gameOverMsg"></p>
+      <p>Juuustoja: <span id="finalScore">0</span></p>
+      <button class="btn-action" onclick="restartGame()">UUDESTAAN</button>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDir(0,-1)" onclick="setDir(0,-1)">▲</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDir(-1,0)" onclick="setDir(-1,0)">◀</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDir(1,0)" onclick="setDir(1,0)">▶</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDir(0,1)" onclick="setDir(0,1)">▼</div>
+    <div class="btn btn-empty"></div>
+  </div>
+  
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
-    const finalScoreEl = document.getElementById('final-score');
+    const finalScoreEl = document.getElementById('finalScore');
+    const gameOverEl = document.getElementById('gameOver');
+    const startScreenEl = document.getElementById('startScreen');
+    const gameOverMsgEl = document.getElementById('gameOverMsg');
     
+    const GRID_SIZE = 16;
+    const CELL_SIZE = canvas.width / GRID_SIZE;
+    
+    let player = { x: 8, y: 8, dx: 0, dy: 0 };
+    let cheese = { x: 0, y: 0 };
+    let enemies = [];
     let score = 0;
-    let gameActive = false;
-    let cheeses = [];
-    let spawnRate = 1000;
-    let lastSpawn = 0;
-    let timer = 30; // 30 seconds game
-    let gameInterval;
-
-    class Cheese {
-      constructor() {
-        this.x = Math.random() * (canvas.width - 40);
-        this.y = Math.random() * (canvas.height - 40);
-        this.size = 30 + Math.random() * 20;
-        this.life = 2000 + Math.random() * 1000;
-        this.maxLife = this.life;
-        this.color = '#ffcc00';
-      }
-
-      update(dt) {
-        this.life -= dt;
-        return this.life > 0;
-      }
-
-      draw() {
-        const alpha = this.life / this.maxLife;
-        ctx.globalAlpha = alpha;
-        
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x + this.size/2, this.y + this.size/2, this.size/2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Reikät
-        ctx.fillStyle = '#000';
-        ctx.beginPath();
-        ctx.arc(this.x + this.size/4, this.y + this.size/4, 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(this.x + this.size/2, this.y + this.size/2 + 2, 3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.globalAlpha = 1.0;
-      }
-    }
-
-    function spawnCheese() {
-      cheeses.push(new Cheese());
-    }
-
+    let gameRunning = false;
+    let lastTime = 0;
+    let moveDelay = 140;
+    
     function startGame() {
-      document.getElementById('start-screen').style.display = 'none';
-      document.getElementById('game-over-screen').style.display = 'none';
+      startScreenEl.classList.remove('active');
+      gameOverEl.classList.remove('active');
+      initGame();
+    }
+    
+    function initGame() {
+      player = { x: 8, y: 8, dx: 0, dy: 0 };
       score = 0;
       scoreEl.textContent = score;
-      cheeses = [];
-      gameActive = true;
-      timer = 30;
-      
-      gameInterval = setInterval(() => {
-        timer--;
-        if (timer <= 0) endGame();
-      }, 1000);
-      
+      enemies = [];
+      for(let i=0; i<2; i++) spawnEnemy();
+      spawnCheese();
+      gameRunning = true;
+      lastTime = 0;
       requestAnimationFrame(gameLoop);
     }
-
-    function endGame() {
-      gameActive = false;
-      clearInterval(gameInterval);
-      document.getElementById('game-over-screen').style.display = 'flex';
-      finalScoreEl.textContent = score;
+    
+    function spawnCheese() {
+      do {
+        cheese.x = Math.floor(Math.random() * GRID_SIZE);
+        cheese.y = Math.floor(Math.random() * GRID_SIZE);
+      } while (cheese.x === player.x && cheese.y === player.y);
     }
-
-    function restartGame() {
-      startGame();
+    
+    function spawnEnemy() {
+      let ex, ey;
+      do {
+        ex = Math.floor(Math.random() * GRID_SIZE);
+        ey = Math.floor(Math.random() * GRID_SIZE);
+      } while (Math.abs(ex - player.x) + Math.abs(ey - player.y) < 6);
+      enemies.push({ x: ex, y: ey });
     }
-
-    function gameLoop(timestamp) {
-      if (!gameActive) return;
-
-      const now = Date.now();
-      const dt = 16.67; // fixed update approx
-
-      if (now - lastSpawn > spawnRate) {
-        spawnCheese();
-        lastSpawn = now;
+    
+    function setDir(dx, dy) {
+      if (!gameRunning) return;
+      player.dx = dx;
+      player.dy = dy;
+    }
+    
+    function updatePlayer() {
+      if (player.dx !== 0 || player.dy !== 0) {
+        player.x += player.dx;
+        player.y += player.dy;
+        
+        if (player.x < 0) player.x = 0;
+        if (player.x >= GRID_SIZE) player.x = GRID_SIZE - 1;
+        if (player.y < 0) player.y = 0;
+        if (player.y >= GRID_SIZE) player.y = GRID_SIZE - 1;
       }
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      cheeses = cheeses.filter(c => {
-        if (c.update(dt)) {
-          c.draw();
+    }
+    
+    function updateEnemies() {
+      enemies.forEach(enemy => {
+        const dx = player.x - enemy.x;
+        const dy = player.y - enemy.y;
+        
+        if (Math.random() < 0.7) {
+          if (Math.abs(dx) > Math.abs(dy)) {
+            enemy.x += dx > 0 ? 1 : -1;
+          } else if (dy !== 0) {
+            enemy.y += dy > 0 ? 1 : -1;
+          }
+        } else {
+          if (dy !== 0) {
+            enemy.y += dy > 0 ? 1 : -1;
+          } else {
+            enemy.x += dx > 0 ? 1 : -1;
+          }
+        }
+      });
+    }
+    
+    function checkCollisions() {
+      if (player.x === cheese.x && player.y === cheese.y) {
+        score++;
+        scoreEl.textContent = score;
+        spawnCheese();
+        if (score % 3 === 0 && enemies.length < 8) {
+          spawnEnemy();
+        }
+      }
+      
+      for (let enemy of enemies) {
+        if (player.x === enemy.x && player.y === enemy.y) {
+          gameOver();
           return true;
         }
-        return false;
+      }
+      return false;
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        ctx.beginPath(); ctx.moveTo(i * CELL_SIZE, 0); ctx.lineTo(i * CELL_SIZE, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i * CELL_SIZE); ctx.lineTo(canvas.width, i * CELL_SIZE); ctx.stroke();
+      }
+      
+      // Draw Player
+      ctx.fillStyle = '#777';
+      ctx.beginPath();
+      ctx.arc(player.x * CELL_SIZE + CELL_SIZE/2, player.y * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ff3333';
+      ctx.beginPath();
+      ctx.arc(player.x * CELL_SIZE + CELL_SIZE/2 - 3, player.y * CELL_SIZE + CELL_SIZE/2 - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(player.x * CELL_SIZE + CELL_SIZE/2 + 3, player.y * CELL_SIZE + CELL_SIZE/2 - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw Cheese
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.arc(cheese.x * CELL_SIZE + CELL_SIZE/2, cheese.y * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.arc(cheese.x * CELL_SIZE + CELL_SIZE/2 - 2, cheese.y * CELL_SIZE + CELL_SIZE/2 - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw Enemies
+      ctx.fillStyle = '#ff4444';
+      enemies.forEach(enemy => {
+        ctx.beginPath();
+        ctx.arc(enemy.x * CELL_SIZE + CELL_SIZE/2, enemy.y * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+        ctx.fill();
       });
-
+    }
+    
+    function gameLoop(timestamp) {
+      if (!gameRunning) return;
+      
+      if (timestamp - lastTime >= moveDelay) {
+        updatePlayer();
+        updateEnemies();
+        if (checkCollisions()) return;
+        lastTime = timestamp;
+      }
+      
+      draw();
       requestAnimationFrame(gameLoop);
     }
-
-    canvas.addEventListener('mousedown', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      cheeses = cheeses.filter(c => {
-        const dx = x - (c.x + c.size/2);
-        const dy = y - (c.y + c.size/2);
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < c.size/2) {
-          score++;
-          scoreEl.textContent = score;
-          return false;
-        }
-        return true;
-      });
+    
+    function gameOver() {
+      gameRunning = false;
+      gameOverEl.classList.add('active');
+      finalScoreEl.textContent = score;
+      
+      const msgs = score === 0 
+        ? "Ei yhtään juustoa! Harjoittele lisää."
+        : score < 5 
+          ? "Muutama juusto tarttui, mutta kissat olivat nopsempiat!"
+          : score < 10
+            ? "Hyvää suoritusta! Lähes pääsit pakoon."
+            : "Melkein mestari! Muutama kissa vielä ja..."
+      gameOverMsgEl.textContent = msgs;
+    }
+    
+    function restartGame() {
+      initGame();
+    }
+    
+    document.addEventListener('keydown', (e) => {
+      switch(e.key) {
+        case 'ArrowUp': case 'w': case 'W': setDir(0, -1); e.preventDefault(); break;
+        case 'ArrowDown': case 's': case 'S': setDir(0, 1); e.preventDefault(); break;
+        case 'ArrowLeft': case 'a': case 'A': setDir(-1, 0); e.preventDefault(); break;
+        case 'ArrowRight': case 'd': case 'D': setDir(1, 0); e.preventDefault(); break;
+        case ' ': startGame(); e.preventDefault(); break;
+      }
     });
-
-    let lastSpawn = 0;
   </script>
 </body>
 </html>
