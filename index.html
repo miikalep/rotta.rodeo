@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>ROTTA.RODEO - Karuselli</title>
+  <title>ROTTA.RODEO</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
     
@@ -14,105 +14,35 @@
       touch-action: manipulation;
     }
     
-    body {
-      background: #0a0a0a;
-      color: #e0e0e0;
-      font-family: 'VT323', monospace;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      overflow-x: hidden;
-    }
-    
-    h1 {
-      font-size: 3rem;
-      letter-spacing: 8px;
-      color: #ffcc00;
-      text-shadow: 0 0 10px #ffcc0066;
-      margin-bottom: 30px;
-      text-align: center;
-    }
-    
-    .carousel {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
+    body, html {
+      margin: 0;
+      padding: 0;
       width: 100%;
-      max-width: 800px;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0a0a;
     }
     
-    .game-card {
-      background: #1a1a1a;
-      border: 2px solid #333;
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 15px;
-      text-decoration: none;
-      color: inherit;
-    }
-    
-    .game-card:hover {
-      border-color: #ffcc00;
-      background: #222;
-      transform: translateY(-5px);
-      box-shadow: 0 5px 15px rgba(255, 204, 0, 0.2);
-    }
-    
-    .game-card h2 {
-      color: #ffcc00;
-      font-size: 1.8rem;
-      margin-bottom: 5px;
-    }
-    
-    .game-card p {
-      color: #888;
-      font-size: 1.1rem;
-      line-height: 1.2;
-    }
-    
-    .game-icon {
-      font-size: 3rem;
-      margin-bottom: 10px;
-    }
-    
-    .footer {
-      margin-top: 50px;
-      color: #444;
-      font-size: 1rem;
+    iframe {
+      border: none;
+      width: 100vw;
+      height: 100vh;
+      display: block;
     }
   </style>
 </head>
 <body>
-  <h1>ROTTA.RODEO</h1>
+  <iframe id="gameFrame" src=""></iframe>
   
-  <div class="carousel">
-    <a href="games/matopeli/index.html" class="game-card">
-      <div class="game-icon">🐍</div>
-      <h2>Matopeli</h2>
-      <p>Klassinen kasvu ja juustonhaku.</p>
-    </a>
+  <script>
+    const games = [
+      'games/matopeli/index.html',
+      'games/juustokiire/index.html',
+      'games/juustonvartija/index.html'
+    ];
     
-    <a href="games/juustokiire/index.html" class="game-card">
-      <div class="game-icon">🧀</div>
-      <h2>Juustokiire</h2>
-      <p>Kerää mahdollisimman paljon juustoa!</p>
-    </a>
-    
-    <a href="games/juustonvartija/index.html" class="game-card">
-      <div class="game-icon">🛡️</div>
-      <h2>Juuston Vartija</h2>
-      <p>Älä anna rottien varastaa aarrettasi!</p>
-    </a>
-  </div>
-  
-  <div class="footer">© 2026 ROTTA.RODEO - Juustoa ja kaaosta</div>
+    const randomGame = games[Math.floor(Math.random() * games.length)];
+    document.getElementById('gameFrame').src = randomGame;
+  </script>
 </body>
 </html>
