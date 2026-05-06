@@ -14,26 +14,111 @@
       touch-action: manipulation;
     }
     
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
+    body {
       background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     
-    iframe {
+    header {
+      text-align: center;
+      padding: 10px;
+      background: #111;
+      border-bottom: 2px solid #333;
+    }
+    
+    header h1 {
+      font-size: 2.2rem;
+      letter-spacing: 6px;
+      color: #ffcc00;
+      text-shadow: 0 0 10px #ffcc0066;
+    }
+    
+    #game-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    #gameFrame {
+      flex: 1;
       border: none;
-      width: 100vw;
-      height: 100vh;
-      display: block;
+      width: 100%;
+      min-height: 0;
+    }
+    
+    nav {
+      background: #111;
+      border-top: 2px solid #333;
+      padding: 10px 5px;
+    }
+    
+    .game-menu {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    
+    .menu-btn {
+      background: #1a1a1a;
+      border: 2px solid #333;
+      color: #888;
+      padding: 8px 12px;
+      font-family: 'VT323', monospace;
+      font-size: 1.1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .menu-btn:hover {
+      border-color: #ffcc00;
+      color: #ffcc00;
+      background: #222;
+    }
+    
+    .menu-btn.active {
+      border-color: #ffcc00;
+      background: #333;
+      color: #ffcc00;
+    }
+    
+    .menu-icon {
+      font-size: 1.3rem;
     }
   </style>
 </head>
 <body>
-  <iframe id="gameFrame" src=""></iframe>
+  <header>
+    <h1>ROTTA.RODEO</h1>
+  </header>
   
+  <div id="game-container">
+    <iframe id="gameFrame" src=""></iframe>
+  </div>
+  
+  <nav>
+    <div class="game-menu">
+      <button class="menu-btn" data-game="matopeli"><span class="menu-icon">🐍</span><span>Matopeli</span></button>
+      <button class="menu-btn" data-game="juustokiire"><span class="menu-icon">🧀</span><span>Juustokiire</span></button>
+      <button class="menu-btn" data-game="juustonvartija"><span class="menu-icon">🛡️</span><span>Vartija</span></button>
+      <button class="menu-btn" data-game="rotankymmenen"><span class="menu-icon">🎯</span><span>Kymppi</span></button>
+      <button class="menu-btn" data-game="rotanloikka"><span class="menu-icon">🦅</span><span>Loikka</span></button>
+      <button class="menu-btn" data-game="varastorotta"><span class="menu-icon">🏠</span><span>Varas</span></button>
+    </div>
+  </nav>
+
   <script>
     const games = [
       'games/matopeli/index.html',
@@ -44,8 +129,30 @@
       'games/varastorotta/index.html'
     ];
     
-    const randomGame = games[Math.floor(Math.random() * games.length)];
-    document.getElementById('gameFrame').src = randomGame;
+    const frame = document.getElementById('gameFrame');
+    const buttons = document.querySelectorAll('.menu-btn');
+    
+    function loadGame(gamePath) {
+      frame.src = gamePath;
+      const gameName = gamePath.split('/')[1];
+      buttons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.game === gameName);
+      });
+    }
+    
+    function randomGame() {
+      const game = games[Math.floor(Math.random() * games.length)];
+      loadGame(game);
+    }
+    
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        loadGame('games/' + btn.dataset.game + '/index.html');
+      });
+    });
+    
+    // Load random game on start
+    randomGame();
   </script>
 </body>
 </html>
