@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ROTTA.RODEO</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+    
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      overflow: hidden;
+    }
+    
+    h1 {
+      font-size: 3rem;
+      letter-spacing: 8px;
+      color: #ffcc00;
+      text-shadow: 0 0 10px #ffcc0066;
+      margin-bottom: 10px;
+    }
+    
+    .score {
+      font-size: 1.5rem;
+      color: #888;
+      margin-bottom: 15px;
+    }
+    
+    #gameCanvas {
+      border: 2px solid #333;
+      background: #111;
+      max-width: 100%;
+    }
+    
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 5px;
+      margin-top: 20px;
+    }
+    
+    .btn {
+      background: #1a1a1a;
+      border: 2px solid #333;
+      color: #888;
+      font-size: 2rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.1s;
+    }
+    
+    .btn:active {
+      background: #333;
+      border-color: #ffcc00;
+      color: #ffcc00;
+    }
+    
+    .btn-empty {
+      visibility: hidden;
+    }
+    
+    .start-screen, .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      padding: 40px;
+      border: 2px solid #ffcc00;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    
+    .start-screen h2 {
+      color: #ffcc00;
+      font-size: 1.8rem;
+    }
+    
+    .start-screen p {
+      color: #666;
+      font-size: 1.2rem;
+    }
+    
+    .game-over {
+      display: none;
+    }
+    
+    .game-over h2 {
+      color: #ff4444;
+      font-size: 2rem;
+    }
+    
+    .game-over .comment {
+      font-size: 1.5rem;
+      color: #ffcc00;
+      margin-bottom: 10px;
+    }
+    
+    .game-over p {
+      font-size: 1.3rem;
+      color: #888;
+      margin-bottom: 15px;
+    }
+    
+    .start-btn, .restart-btn {
+      background: #ffcc00;
+      color: #0a0a0a;
+      border: none;
+      padding: 15px 40px;
+      font-family: inherit;
+      font-size: 1.5rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+    .start-btn:hover, .restart-btn:hover {
+      background: #ffdd33;
+    }
+    
+    .container {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <h1>ROTTA.RODEO</h1>
+  <div class="score">PISTEET: <span id="score">0</span></div>
+  
+  <div class="container">
+    <canvas id="gameCanvas" width="320" height="320"></canvas>
+    
+    <div class="start-screen" id="startScreen">
+      <h2>VALMIINA?</h2>
+      <p>Ohjaa rottasi juuston luo</p>
+      <button class="start-btn" onclick="startGame()">ALOITA</button>
+    </div>
+    
+    <div class="game-over" id="gameOver">
+      <h2>GAME OVER</h2>
+      <div class="comment" id="comment"></div>
+      <p>Pisteet: <span id="finalScore">0</span></p>
+      <button class="restart-btn" onclick="restartGame()">UUDESTAAN</button>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDirection(0,-1)" onclick="setDirection(0,-1)">▲</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDirection(-1,0)" onclick="setDirection(-1,0)">◀</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDirection(1,0)" onclick="setDirection(1,0)">▶</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDirection(0,1)" onclick="setDirection(0,1)">▼</div>
+    <div class="btn btn-empty"></div>
+  </div>
+  
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const finalScoreEl = document.getElementById('finalScore');
+    const gameOverEl = document.getElementById('gameOver');
+    const startScreenEl = document.getElementById('startScreen');
+    const commentEl = document.getElementById('comment');
+    
+    const GRID_SIZE = 16;
+    const CELL_SIZE = canvas.width / GRID_SIZE;
+    
+    let snake = [];
+    let direction = {x: 1, y: 0};
+    let nextDirection = {x: 1, y: 0};
+    let cheese = {x: 0, y: 0};
+    let score = 0;
+    let gameRunning = false;
+    let gameStarted = false;
+    let gameSpeed = 120;
+    let lastTime = 0;
+    
+    const comments = {
+      0: "Paskanen suoritus",
+      1: "Vauvarotta",
+      2: "Vauvarotta",
+      3: "Vauvarotta",
+      4: "Vauvarotta",
+      5: "Rottamaista",
+      6: "Rottamaista",
+      7: "Tyydyttävää",
+      8: "Tyydyttävää",
+      9: "Ihan jees",
+      10: "Rotan hommaa",
+      11: "Rotan hommaa",
+      12: "Hyvää menoa",
+      13: "Hyvää menoa",
+      14: "Rotta-akatemia",
+      15: "Rotta-akatemia",
+      16: "Mestarirottu",
+      17: "Mestarirottu",
+      18: "Legendaarinen",
+      19: "Legendaarinen",
+      20: "Juustokiekoti",
+      21: "Juustokiekoti",
+      22: "Sulatonta",
+      23: "Sulatonta",
+      24: "Rotan jumala"
+    };
+    
+    function getComment(s) {
+      if (s >= 25) return "Rotan jumala";
+      return comments[s] || "Rotan jumala";
+    }
+    
+    function initGame() {
+      snake = [
+        {x: 5, y: 8},
+        {x: 4, y: 8},
+        {x: 3, y: 8}
+      ];
+      direction = {x: 1, y: 0};
+      nextDirection = {x: 1, y: 0};
+      score = 0;
+      scoreEl.textContent = score;
+      gameOverEl.style.display = 'none';
+      spawnCheese();
+      draw();
+    }
+    
+    function startGame() {
+      startScreenEl.style.display = 'none';
+      gameStarted = true;
+      gameRunning = true;
+      lastTime = 0;
+      requestAnimationFrame(gameLoop);
+    }
+    
+    function spawnCheese() {
+      do {
+        cheese.x = Math.floor(Math.random() * GRID_SIZE);
+        cheese.y = Math.floor(Math.random() * GRID_SIZE);
+      } while (snake.some(s => s.x === cheese.x && s.y === cheese.y));
+    }
+    
+    function setDirection(x, y) {
+      if (gameRunning && (direction.x !== -x || direction.y !== -y)) {
+        nextDirection = {x, y};
+      }
+    }
+    
+    function update() {
+      direction = nextDirection;
+      
+      const head = {
+        x: snake[0].x + direction.x,
+        y: snake[0].y + direction.y
+      };
+      
+      if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+        endGame();
+        return;
+      }
+      
+      if (snake.some(s => s.x === head.x && s.y === head.y)) {
+        endGame();
+        return;
+      }
+      
+      snake.unshift(head);
+      
+      if (head.x === cheese.x && head.y === cheese.y) {
+        score++;
+        scoreEl.textContent = score;
+        spawnCheese();
+        if (gameSpeed > 60) gameSpeed -= 2;
+      } else {
+        snake.pop();
+      }
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Piirrä ruudukko (subtle)
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * CELL_SIZE, 0);
+        ctx.lineTo(i * CELL_SIZE, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * CELL_SIZE);
+        ctx.lineTo(canvas.width, i * CELL_SIZE);
+        ctx.stroke();
+      }
+      
+      // Piirrä rotta (pää)
+      const head = snake[0];
+      const hx = head.x * CELL_SIZE;
+      const hy = head.y * CELL_SIZE;
+      
+      ctx.fillStyle = '#555';
+      ctx.beginPath();
+      ctx.roundRect(hx + 1, hy + 1, CELL_SIZE - 2, CELL_SIZE - 2, 4);
+      ctx.fill();
+      
+      // Korvat
+      ctx.fillStyle = '#444';
+      ctx.beginPath();
+      ctx.arc(hx + 3, hy + 3, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(hx + CELL_SIZE - 3, hy + 3, 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Silmät
+      ctx.fillStyle = '#ff3333';
+      const eyeOffsetX = direction.x === 1 ? 3 : direction.x === -1 ? -3 : 0;
+      const eyeOffsetY = direction.y === 1 ? 3 : direction.y === -1 ? -3 : 0;
+      ctx.beginPath();
+      ctx.arc(hx + CELL_SIZE/2 - 2 + eyeOffsetX, hy + CELL_SIZE/2 + eyeOffsetY - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(hx + CELL_SIZE/2 + 2 + eyeOffsetX, hy + CELL_SIZE/2 + eyeOffsetY - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Piirrä häntä (mato)
+      ctx.fillStyle = '#333';
+      for (let i = 1; i < snake.length; i++) {
+        const s = snake[i];
+        const sx = s.x * CELL_SIZE;
+        const sy = s.y * CELL_SIZE;
+        const alpha = 1 - (i / snake.length) * 0.6;
+        ctx.fillStyle = `rgba(50, 50, 50, ${alpha})`;
+        ctx.beginPath();
+        ctx.roundRect(sx + 2, sy + 2, CELL_SIZE - 4, CELL_SIZE - 4, 3);
+        ctx.fill();
+      }
+      
+      // Piirrä juusto
+      const cx = cheese.x * CELL_SIZE;
+      const cy = cheese.y * CELL_SIZE;
+      
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.arc(cx + CELL_SIZE/2, cy + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Reikä
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.arc(cx + CELL_SIZE/2 - 2, cy + CELL_SIZE/2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + CELL_SIZE/2 + 2, cy + CELL_SIZE/2 + 1, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Kiilto
+      ctx.fillStyle = '#ffee66';
+      ctx.beginPath();
+      ctx.arc(cx + CELL_SIZE/2 - 3, cy + CELL_SIZE/2 - 3, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    function gameLoop(timestamp) {
+      if (!gameRunning) return;
+      
+      if (timestamp - lastTime >= gameSpeed) {
+        update();
+        lastTime = timestamp;
+      }
+      
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+    
+    function endGame() {
+      gameRunning = false;
+      finalScoreEl.textContent = score;
+      commentEl.textContent = getComment(score);
+      gameOverEl.style.display = 'flex';
+    }
+    
+    function restartGame() {
+      gameSpeed = 120;
+      initGame();
+      gameOverEl.style.display = 'none';
+      startScreenEl.style.display = 'flex';
+    }
+    
+    // Näppäimistöohjaus
+    document.addEventListener('keydown', (e) => {
+      if (!gameStarted && (e.key === ' ' || e.key === 'Enter')) {
+        startGame();
+        return;
+      }
+      if (!gameRunning) return;
+      
+      switch(e.key) {
+        case 'ArrowUp':
+        case 'w':
+        case 'W':
+          setDirection(0, -1);
+          break;
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+          setDirection(0, 1);
+          break;
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+          setDirection(-1, 0);
+          break;
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+          setDirection(1, 0);
+          break;
+      }
+    });
+    
+    // Piirrä aloitustila
+    initGame();
+  </script>
+</body>
+</html>

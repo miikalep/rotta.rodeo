@@ -1,0 +1,13 @@
+{
+  "publishes": {
+    "civic-juniper-hmdv": {
+      "siteUrl": "https://civic-juniper-hmdv.here.now/"
+    },
+    "queued-osprey-7vpf": {
+      "siteUrl": "https://queued-osprey-7vpf.here.now/"
+    },
+    "indigo-grove-ckea": {
+      "siteUrl": "https://indigo-grove-ckea.here.now/"
+    }
+  }
+}
