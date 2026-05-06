@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ROTTA.RODEO</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+    
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0a0a;
+    }
+    
+    iframe {
+      border: none;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="gameFrame" src=""></iframe>
+  <script>
+    const games = [
+      'matopeli/index.html',
+      'juustokiire/index.html'
+    ];
+    
+    const randomGame = games[Math.floor(Math.random() * games.length)];
+    document.getElementById('gameFrame').src = randomGame;
+  </script>
+</body>
+</html>

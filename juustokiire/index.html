@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Juustokiire</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+    
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      overflow: hidden;
+    }
+    
+    h1 {
+      font-size: 2rem;
+      letter-spacing: 4px;
+      color: #ffcc00;
+      text-shadow: 0 0 10px #ffcc0066;
+      margin-bottom: 10px;
+    }
+    
+    .score {
+      font-size: 1.5rem;
+      color: #888;
+      margin-bottom: 15px;
+    }
+    
+    #gameCanvas {
+      border: 2px solid #333;
+      background: #111;
+      max-width: 100%;
+      display: block;
+    }
+    
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 5px;
+      margin-top: 20px;
+    }
+    
+    .btn {
+      background: #1a1a1a;
+      border: 2px solid #333;
+      color: #888;
+      font-size: 2rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.1s;
+    }
+    
+    .btn:active {
+      background: #333;
+      border-color: #ffcc00;
+      color: #ffcc00;
+    }
+    
+    .btn-empty {
+      visibility: hidden;
+    }
+    
+    .game-over, .start-screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      padding: 30px;
+      border: 2px solid #ffcc00;
+      text-align: center;
+      display: none;
+      z-index: 10;
+      width: 280px;
+    }
+    
+    .start-screen {
+      display: block;
+    }
+    
+    .game-over h2, .start-screen h2 {
+      color: #ffcc00;
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+    
+    .game-over h2 {
+      color: #ff4444;
+    }
+    
+    .game-over p, .start-screen p {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+    
+    .restart-btn, .start-btn {
+      background: #ffcc00;
+      color: #0a0a0a;
+      border: none;
+      padding: 10px 30px;
+      font-family: inherit;
+      font-size: 1.3rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+    .restart-btn:hover, .start-btn:hover {
+      background: #ffdd33;
+    }
+    
+    .container {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <h1>JUUSTOKIIRE</h1>
+  <div class="score">JUUSTOT: <span id="score">0</span></div>
+  
+  <div class="container">
+    <canvas id="gameCanvas" width="320" height="320"></canvas>
+    
+    <div class="start-screen" id="startScreen">
+      <h2>JUUSTOKIIRE</h2>
+      <p>Kerää juustoja ja väistä punaisia vihollisia! Älä anna heidän napata sinua.</p>
+      <button class="start-btn" onclick="startGame()">ALOITA</button>
+    </div>
+
+    <div class="game-over" id="gameOver">
+      <h2>GAME OVER</h2>
+      <p id="gameOverMsg">Sait juustoja, mutta viholliset nappasivat!</p>
+      <p>Pistemäärä: <span id="finalScore">0</span></p>
+      <button class="restart-btn" onclick="restartGame()">UUDESTAAN</button>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDirection(0,-1)" onclick="setDirection(0,-1)">▲</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDirection(-1,0)" onclick="setDirection(-1,0)">◀</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDirection(1,0)" onclick="setDirection(1,0)">▶</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="setDirection(0,1)" onclick="setDirection(0,1)">▼</div>
+    <div class="btn btn-empty"></div>
+  </div>
+  
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const finalScoreEl = document.getElementById('finalScore');
+    const gameOverEl = document.getElementById('gameOver');
+    const startScreenEl = document.getElementById('startScreen');
+    const gameOverMsgEl = document.getElementById('gameOverMsg');
+    
+    const GRID_SIZE = 16;
+    const CELL_SIZE = canvas.width / GRID_SIZE;
+    
+    let player = { x: 8, y: 8 };
+    let cheese = { x: 0, y: 0 };
+    let enemies = [];
+    let score = 0;
+    let gameRunning = false;
+    let gameSpeed = 150;
+    let lastTime = 0;
+    
+    function startGame() {
+      startScreenEl.style.display = 'none';
+      initGame();
+    }
+    
+    function initGame() {
+      player = { x: 8, y: 8 };
+      score = 0;
+      scoreEl.textContent = score;
+      enemies = [];
+      for(let i=0; i<3; i++) spawnEnemy();
+      spawnCheese();
+      gameOverEl.style.display = 'none';
+      gameRunning = true;
+      lastTime = 0;
+      requestAnimationFrame(gameLoop);
+    }
+    
+    function spawnCheese() {
+      do {
+        cheese.x = Math.floor(Math.random() * GRID_SIZE);
+        cheese.y = Math.floor(Math.random() * GRID_SIZE);
+      } while (cheese.x === player.x && cheese.y === player.y);
+    }
+    
+    function spawnEnemy() {
+      let ex, ey;
+      do {
+        ex = Math.floor(Math.random() * GRID_SIZE);
+        ey = Math.floor(Math.random() * GRID_SIZE);
+      } while (Math.abs(ex - player.x) < 6 || Math.abs(ey - player.y) < 6);
+      enemies.push({ x: ex, y: ey });
+    }
+    
+    function setDirection(dx, dy) {
+      if (!gameRunning) return;
+      const nx = player.x + dx;
+      const ny = player.y + dy;
+      if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
+        player.x = nx;
+        player.y = ny;
+        checkCollisions();
+      }
+    }
+    
+    function checkCollisions() {
+      if (player.x === cheese.x && player.y === cheese.y) {
+        score++;
+        scoreEl.textContent = score;
+        spawnCheese();
+        if (enemies.length < 15) {
+          if (score % 2 === 0) spawnEnemy();
+        }
+      }
+      
+      for (let enemy of enemies) {
+        if (player.x === enemy.x && player.y === enemy.y) {
+          gameOver();
+          return;
+        }
+      }
+    }
+    
+    function updateEnemies() {
+      enemies.forEach(enemy => {
+        const dx = player.x - enemy.x;
+        const dy = player.y - enemy.y;
+        
+        if (Math.random() < 0.6) {
+          if (Math.abs(dx) > Math.abs(dy)) {
+            if (dx > 0) enemy.x++;
+            else if (dx < 0) enemy.x--;
+          } else {
+            if (dy > 0) enemy.y++;
+            else if (dy < 0) enemy.y--;
+          }
+        }
+      });
+      
+      // Check collisions after enemy movement
+      for (let enemy of enemies) {
+        if (player.x === enemy.x && player.y === enemy.y) {
+          gameOver();
+        }
+      }
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        ctx.beginPath(); ctx.moveTo(i * CELL_SIZE, 0); ctx.lineTo(i * CELL_SIZE, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i * CELL_SIZE); ctx.lineTo(canvas.width, i * CELL_SIZE); ctx.stroke();
+      }
+      
+      // Draw Player (Cheese Mouse)
+      ctx.fillStyle = '#888';
+      ctx.beginPath();
+      ctx.arc(player.x * CELL_SIZE + CELL_SIZE/2, player.y * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ff3333';
+      ctx.beginPath();
+      ctx.arc(player.x * CELL_SIZE + CELL_SIZE/2 - 3, player.y * CELL_SIZE + CELL_SIZE/2 - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(player.x * CELL_SIZE + CELL_SIZE/2 + 3, player.y * CELL_SIZE + CELL_SIZE/2 - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw Cheese
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.arc(cheese.x * CELL_SIZE + CELL_SIZE/2, cheese.y * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw Enemies (Cats/Obstacles)
+      ctx.fillStyle = '#ff4444';
+      enemies.forEach(enemy => {
+        ctx.beginPath();
+        ctx.arc(enemy.x * CELL_SIZE + CELL_SIZE/2, enemy.y * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    
+    function gameLoop(timestamp) {
+      if (!gameRunning) return;
+      
+      if (timestamp - lastTime >= gameSpeed) {
+        updateEnemies();
+        lastTime = timestamp;
+      }
+      
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+    
+    function gameOver() {
+      gameRunning = false;
+      gameOverEl.style.display = 'block';
+      finalScoreEl.textContent = score;
+      
+      if (score === 0) {
+        gameOverMsgEl.textContent = "Ei yhtään juustoa... kokeile uudestaan!";
+      } else if (score < 5) {
+        gameOverMsgEl.textContent = "Sait muutaman juuston, mutta viholliset nappasivat!";
+      } else {
+        gameOverMsgEl.textContent = "Olit lähellä, mutta viholliset olivat nopeampia!";
+      }
+    }
+    
+    function restartGame() {
+      initGame();
+    }
+    
+    document.addEventListener('keydown', (e) => {
+      switch(e.key) {
+        case 'ArrowUp': case 'w': case 'W': setDirection(0, -1); break;
+        case 'ArrowDown': case 's': case 'S': setDirection(0, 1); break;
+        case 'ArrowLeft': case 'a': case 'A': setDirection(-1, 0); break;
+        case 'ArrowRight': case 'd': case 'D': setDirection(1, 0); break;
+      }
+    });
+  </script>
+</body>
+</html>
