@@ -194,6 +194,7 @@
     }
     
     function initGame() {
+      gameRunning = false; // Stop any existing loop first
       player = { x: 8, y: 8, dx: 0, dy: 0 };
       score = 0;
       scoreEl.textContent = score;
@@ -352,6 +353,7 @@
     }
     
     function restartGame() {
+      gameOverEl.classList.remove('active');
       initGame();
     }
     
