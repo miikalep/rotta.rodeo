@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ROTAN KYMMENEN</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+    
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      color: #ffcc00;
+      text-shadow: 0 0 10px #ffcc0066;
+      margin-bottom: 10px;
+      z-index: 10;
+    }
+    
+    #game-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .stats {
+      font-size: 1.3rem;
+      color: #888;
+      margin-bottom: 10px;
+      z-index: 10;
+      display: flex;
+      gap: 30px;
+    }
+    
+    #gameCanvas {
+      background: #111;
+      border: 3px solid #333;
+      border-radius: 10px;
+      cursor: crosshair;
+      max-width: 100%;
+    }
+    
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      border: 2px solid #ffcc00;
+      border-radius: 10px;
+      z-index: 20;
+    }
+    
+    .screen h2 {
+      color: #ffcc00;
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+    
+    .screen p {
+      color: #666;
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      max-width: 280px;
+    }
+    
+    .btn {
+      background: #ffcc00;
+      color: #0a0a0a;
+      border: none;
+      padding: 12px 30px;
+      font-family: inherit;
+      font-size: 1.5rem;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    
+    .btn:hover {
+      background: #ffdd33;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .timer-bar {
+      width: 320px;
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    
+    .timer-fill {
+      height: 100%;
+      background: #ffcc00;
+      transition: width 0.1s linear;
+    }
+    
+    #comment {
+      color: #ff6b6b;
+      font-size: 1.3rem;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ROTAN KYMMENEN</h1>
+  
+  <div id="game-container">
+    <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+    <div class="stats">
+      <span>Pisteet: <span id="score">0</span></span>
+      <span>Tavoite: <span id="target">10</span></span>
+    </div>
+    
+    <canvas id="gameCanvas" width="320" height="320"></canvas>
+    
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h2>LIIKAA, LIIKAA!</h2>
+      <p>Osuta kymmeneen rottaan ennen kuin aika loppuu. Varo vääriä osumia!</p>
+      <button class="btn" onclick="startGame()">ALOITA</button>
+    </div>
+    
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="screen hidden">
+      <h2 id="endTitle">AIKAA!</h2>
+      <div id="comment"></div>
+      <p>Osuit <span id="finalScore">0</span>/10 rottaan</p>
+      <button class="btn" onclick="restartGame()">YRITÄ UUDELLEEN</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const finalScoreEl = document.getElementById('finalScore');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const startScreen = document.getElementById('startScreen');
+    const commentEl = document.getElementById('comment');
+    const endTitle = document.getElementById('endTitle');
+    const timerFill = document.getElementById('timerFill');
+
+    let score = 0;
+    let misses = 0;
+    let gameRunning = false;
+    let startTime = 0;
+    const GAME_DURATION = 8000;
+    let animals = [];
+    let lastSpawn = 0;
+
+    const RAT_LIFETIME = 1200;
+    const SPAWN_RATE = 700;
+    const TARGET_SCORE = 10;
+
+    const comments = {
+      win: [
+        "Rotan metsästäjä!",
+        "Tehotappaja!",
+        "Rotta-aas!",
+        "Kemikaalimies!"
+      ],
+      close: [
+        "Melkein!",
+        "Yksi extra rotta olisi riittänyt.",
+        "Oheinen rotta pakeni.",
+        "Seuraava kerta!"
+      ],
+      fail: [
+        "Hitaalla tuella.",
+        "Et näe mitään.",
+        "Sokea ampuja.",
+        "Koko rosvo roskakorissa."
+      ],
+      miss: [
+        "Turhat clickit kuluttavat aikaa!"
+      ]
+    };
+
+    function getRandom(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    class Animal {
+      constructor(type) {
+        this.type = type;
+        this.x = 30 + Math.random() * (canvas.width - 60);
+        this.y = 30 + Math.random() * (canvas.height - 60);
+        this.size = type === 'rat' ? 25 : 30;
+        this.createdAt = performance.now();
+        this.alive = true;
+      }
+
+      update(now) {
+        if (now - this.createdAt > RAT_LIFETIME) {
+          this.alive = false;
+        }
+      }
+
+      draw() {
+        const age = (performance.now() - this.createdAt) / RAT_LIFETIME;
+        const pulse = Math.sin(age * Math.PI * 4) * 0.3 + 0.7;
+        
+        if (this.type === 'rat') {
+          ctx.fillStyle = `rgba(100, 100, 100, ${pulse})`;
+          ctx.beginPath();
+          ctx.ellipse(this.x, this.y, this.size / 2, this.size / 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ff3333';
+          ctx.beginPath();
+          ctx.arc(this.x - 4, this.y - 4, 2, 0, Math.PI * 2);
+          ctx.arc(this.x + 4, this.y - 4, 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = `rgba(255, 200, 100, ${pulse})`;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(this.x - 5, this.y - 5, 5, 0, Math.PI * 2);
+          ctx.arc(this.x + 5, this.y - 5, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.beginPath();
+          ctx.arc(this.x - 5, this.y - 5, 2, 0, Math.PI * 2);
+          ctx.arc(this.x + 5, this.y - 5, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      contains(px, py) {
+        const dx = px - this.x;
+        const dy = py - this.y;
+        return Math.sqrt(dx * dx + dy * dy) < this.size;
+      }
+    }
+
+    function spawnAnimal(now) {
+      if (now - lastSpawn > SPAWN_RATE) {
+        const type = Math.random() < 0.85 ? 'rat' : 'cheese';
+        animals.push(new Animal(type));
+        lastSpawn = now;
+      }
+    }
+
+    function startGame() {
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      score = 0;
+      misses = 0;
+      scoreEl.textContent = score;
+      animals = [];
+      gameRunning = true;
+      startTime = performance.now();
+      lastSpawn = startTime;
+      requestAnimationFrame(gameLoop);
+    }
+
+    function restartGame() {
+      startGame();
+    }
+
+    function endGame(won) {
+      gameRunning = false;
+      gameOverScreen.classList.remove('hidden');
+      finalScoreEl.textContent = score;
+      endTitle.textContent = won ? 'VOITTO!' : 'AIKAA!';
+      endTitle.style.color = won ? '#ffcc00' : '#ff4444';
+      commentEl.textContent = won ? getRandom(comments.win) : 
+        score >= 7 ? getRandom(comments.close) : getRandom(comments.fail);
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (!gameRunning) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      let hit = false;
+      for (let i = animals.length - 1; i >= 0; i--) {
+        if (animals[i].contains(mouseX, mouseY)) {
+          if (animals[i].type === 'rat') {
+            score++;
+            scoreEl.textContent = score;
+            hit = true;
+            if (score >= TARGET_SCORE) {
+              endGame(true);
+              return;
+            }
+          } else {
+            misses++;
+            hit = true;
+          }
+          animals.splice(i, 1);
+          break;
+        }
+      }
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (!gameRunning) return;
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const mouseX = touch.clientX - rect.left;
+      const mouseY = touch.clientY - rect.top;
+
+      for (let i = animals.length - 1; i >= 0; i--) {
+        if (animals[i].contains(mouseX, mouseY)) {
+          if (animals[i].type === 'rat') {
+            score++;
+            scoreEl.textContent = score;
+            if (score >= TARGET_SCORE) {
+              endGame(true);
+              return;
+            }
+          } else {
+            misses++;
+          }
+          animals.splice(i, 1);
+          break;
+        }
+      }
+    }, { passive: false });
+
+    function gameLoop(timestamp) {
+      if (!gameRunning) return;
+
+      const elapsed = timestamp - startTime;
+      const remaining = Math.max(0, GAME_DURATION - elapsed);
+      timerFill.style.width = (remaining / GAME_DURATION * 100) + '%';
+
+      if (remaining <= 0) {
+        endGame(false);
+        return;
+      }
+
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      spawnAnimal(timestamp);
+
+      for (let i = animals.length - 1; i >= 0; i--) {
+        animals[i].update(timestamp);
+        if (!animals[i].alive) {
+          animals.splice(i, 1);
+        } else {
+          animals[i].draw();
+        }
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
