@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>MИТÄTÖN ROTTA</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+    
+    body {
+      background: #0d0d0d;
+      color: #c0c0c0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    h1 {
+      font-size: 2.8rem;
+      color: #a0a0a0;
+      text-shadow: 2px 2px #000;
+      margin-bottom: 5px;
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      color: #666;
+      margin-bottom: 15px;
+    }
+    
+    #game-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .stats {
+      font-size: 1.5rem;
+      color: #888;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 20px;
+    }
+    
+    #gameCanvas {
+      background: #151515;
+      border: 4px solid #222;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      max-width: 100%;
+      cursor: none;
+    }
+    
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      border: 2px solid #444;
+      border-radius: 8px;
+      z-index: 20;
+    }
+    
+    .screen h2 {
+      color: #777;
+      font-size: 2.2rem;
+      margin-bottom: 10px;
+    }
+    
+    .screen p {
+      color: #555;
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+      max-width: 300px;
+    }
+    
+    .btn {
+      background: #333;
+      color: #eee;
+      border: 2px solid #555;
+      padding: 12px 30px;
+      font-family: inherit;
+      font-size: 1.6rem;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    
+    .btn:hover {
+      background: #444;
+      border-color: #777;
+      color: #fff;
+    }
+    
+    .hidden {
+      display: none;
+    }
+
+    #comment {
+      color: #aaa;
+      font-size: 1.4rem;
+      margin-bottom: 15px;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>MИТÄTÖN ROTTA</h1>
+  <div class="subtitle">Välttele valokeilaa, kerää murusia.</div>
+  
+  <div id="game-container">
+    <div class="stats">
+      <span>Muruset: <span id="score">0</span></span>
+    </div>
+    
+    <canvas id="gameCanvas" width="320" height="400"></canvas>
+    
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h2>SIVUUN!</h2>
+      <p>Ohjaa rottaa hiirellä. <br>Älä jää valokeilaan, tai olet mennyttä.</p>
+      <button class="btn" onclick="startGame()">ALKAISPAAN</button>
+    </div>
+    
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="screen hidden">
+      <h2 id="endTitle">KIINNI!</h2>
+      <div id="comment"></div>
+      <p>Keräsit <span id="finalScore">0</span> murusta</p>
+      <button class="btn" onclick="restartGame()">UUDELLEEN</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const finalScoreEl = document.getElementById('finalScore');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const startScreen = document.getElementById('startScreen');
+    const commentEl = document.getElementById('comment');
+    const endTitle = document.getElementById('endTitle');
+
+    let score = 0;
+    let gameRunning = false;
+    let mouseX = 160;
+    let mouseY = 200;
+    let crumbs = [];
+    let flashlights = [];
+    let lastTimestamp = 0;
+
+    const CRUMB_COUNT = 5;
+    const FLASH_COUNT = 2;
+
+    const comments = [
+      "Vähän liian hidas oli.",
+      "Klassinen virhe.",
+      "Sait edes muutaman murusen.",
+      "Melkein pääsit pakoon.",
+      "Olet oikeasti mitätön rotta.",
+      "Sokea onnettomuus.",
+      "Säpähdätit väärään suuntaan."
+    ];
+
+    class Crumb {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = 20 + Math.random() * (canvas.width - 40);
+        this.y = 20 + Math.random() * (canvas.height - 40);
+        this.size = 3 + Math.random() * 3;
+        this.color = `hsl(${30 + Math.random() * 20}, 50%, ${60 + Math.random() * 20}%)`;
+      }
+      draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      contains(px, py) {
+        const dx = px - this.x;
+        const dy = py - this.y;
+        return Math.sqrt(dx * dx + dy * dy) < this.size + 10;
+      }
+    }
+
+    class Flashlight {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.angle = Math.random() * Math.PI * 2;
+        this.speed = 0.01 + Math.random() * 0.02;
+        this.range = 120 + Math.random() * 60;
+        this.width = 0.4 + Math.random() * 0.3; // Radians
+      }
+      update() {
+        this.angle += this.speed;
+      }
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        
+        const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, this.range);
+        grad.addColorStop(0, 'rgba(255, 255, 200, 0.4)');
+        grad.addColorStop(1, 'rgba(255, 255, 200, 0)');
+        
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, this.range, -this.width, this.width);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      intersects(px, py) {
+        const dx = px - this.x;
+        const dy = py - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > this.range) return false;
+        
+        const angleToTarget = Math.atan2(dy, dx);
+        let diff = angleToTarget - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        
+        return Math.abs(diff) < this.width;
+      }
+    }
+
+    function init() {
+      crumbs = [];
+      for (let i = 0; i < CRUMB_COUNT; i++) crumbs.push(new Crumb());
+      flashlights = [];
+      for (let i = 0; i < FLASH_COUNT; i++) flashlights.push(new Flashlight());
+    }
+
+    function startGame() {
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      score = 0;
+      scoreEl.textContent = score;
+      init();
+      gameRunning = true;
+      lastTimestamp = performance.now();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function restartGame() { startGame(); }
+
+    function endGame() {
+      gameRunning = false;
+      gameOverScreen.classList.remove('hidden');
+      finalScoreEl.textContent = score;
+      commentEl.textContent = comments[Math.floor(Math.random() * comments.length)];
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      mouseX = touch.clientX - rect.left;
+      mouseY = touch.clientY - rect.top;
+    }, { passive: false });
+
+    function gameLoop(timestamp) {
+      if (!gameRunning) return;
+
+      ctx.fillStyle = '#151515';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Update & Draw Flashlights
+      flashlights.forEach(f => {
+        f.update();
+        f.draw();
+        if (f.intersects(mouseX, mouseY)) {
+          endGame();
+        }
+      });
+
+      // Draw Crumbs
+      crumbs.forEach(c => {
+        c.draw();
+        if (c.contains(mouseX, mouseY)) {
+          score++;
+          scoreEl.textContent = score;
+          c.reset();
+          // Increase difficulty slightly
+          if (score % 5 === 0) {
+             if(flashlights.length < 5) flashlights.push(new Flashlight());
+          }
+        }
+      });
+
+      // Draw Rat (The player)
+      ctx.fillStyle = '#666';
+      ctx.beginPath();
+      ctx.ellipse(mouseX, mouseY, 8, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(mouseX + 4, mouseY - 2, 1, 0, Math.PI * 2);
+      ctx.arc(mouseX + 6, mouseY - 2, 1, 0, Math.PI * 2);
+      ctx.fill();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>JUUSTON VARTIJA</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+    
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    h1 {
+      font-size: 3rem;
+      color: #ffcc00;
+      text-shadow: 0 0 10px #ffcc0066;
+      margin-bottom: 10px;
+      z-index: 10;
+    }
+    
+    #game-container {
+      position: relative;
+      width: 340px;
+      height: 440px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .score-board {
+      font-size: 1.5rem;
+      color: #888;
+      margin-bottom: 10px;
+      z-index: 10;
+    }
+    
+    #gameCanvas {
+      background: #111;
+      border: 3px solid #333;
+      border-radius: 10px;
+      cursor: crosshair;
+      max-width: 100%;
+    }
+    
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      border: 2px solid #ffcc00;
+      border-radius: 10px;
+      z-index: 20;
+    }
+    
+    .screen h2 {
+      color: #ffcc00;
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+    
+    .screen p {
+      color: #666;
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+    }
+    
+    .btn {
+      background: #ffcc00;
+      color: #0a0a0a;
+      border: none;
+      padding: 12px 30px;
+      font-family: inherit;
+      font-size: 1.5rem;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    
+    .btn:hover {
+      background: #ffdd33;
+    }
+    
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>JUUSTON VARTIJA</h1>
+  
+  <div id="game-container">
+    <div class="score-board">Vartioidut: <span id="score">0</span></div>
+    
+    <canvas id="gameCanvas" width="320" height="320"></canvas>
+    
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h2>SULKEMISET!</h2>
+      <p>Kaikki rotat on tapettava ennen kuin ne saavuttavat keskellä olevan juuston.</p>
+      <button class="btn" onclick="startGame()">SULJE OVI</button>
+    </div>
+    
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="screen hidden">
+      <h2>JUUSTO VARASTETTU!</h2>
+      <div id="comment" style="color: #ffcc00; font-size: 1.5rem; margin-bottom: 10px;"></div>
+      <p>Suojasin juustoa <span id="finalScore">0</span> kertaa</p>
+      <button class="btn" onclick="restartGame()">YRITÄ UUDELLEEN</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const finalScoreEl = document.getElementById('finalScore');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const startScreen = document.getElementById('startScreen');
+    const commentEl = document.getElementById('comment');
+
+    let score = 0;
+    let gameRunning = false;
+    let rats = [];
+    let cheese = { x: 160, y: 160, size: 30 };
+    let spawnRate = 1500; // ms
+    let lastSpawn = 0;
+
+    const comments = {
+      0: "Et edes nähnyt niitä.",
+      1: "Nukkuitko?",
+      2: "Sokea vartija.",
+      3: "Huti.",
+      4: "Heti kohtalokas.",
+      5: "Vastavastustus oli heikko.",
+      6: "Samaa rataa.",
+      7: "Ehkä ensi kerralla.",
+      8: "Altavastaaja.",
+      9: "Melkein jotain.",
+      10: "Säädyllistä vartiointia.",
+      15: "Rotta-räpelöijä!",
+      20: "Kova kunto!",
+      30: "Vartiointiprofessi!",
+      40: "Juuston Jumalolento!",
+      50: "Sinisiniset silmät, terävä katse!"
+    };
+
+    function getComment(s) {
+      let best = comments[0];
+      for (let key in comments) {
+        if (s >= parseInt(key)) best = comments[key];
+      }
+      return best;
+    }
+
+    class Rat {
+      constructor() {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 200;
+        this.x = cheese.x + Math.cos(angle) * dist;
+        this.y = cheese.y + Math.sin(angle) * dist;
+        this.size = 20;
+        this.speed = 0.5 + Math.random() * 1.2 + (score / 20);
+        this.alive = true;
+      }
+
+      update() {
+        const dx = cheese.x - this.x;
+        const dy = cheese.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        this.x += (dx / dist) * this.speed;
+        this.y += (dy / dist) * this.speed;
+
+        if (dist < cheese.size / 2) {
+          endGame();
+        }
+      }
+
+      draw() {
+        ctx.fillStyle = '#555';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, this.size / 2, this.size / 4, Math.atan2(cheese.y - this.y, cheese.x - this.x), 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Silmät
+        ctx.fillStyle = 'red';
+        ctx.beginPath();
+        ctx.arc(this.x + 2, this.y - 2, 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function spawnRat(timestamp) {
+      if (timestamp - lastSpawn > spawnRate) {
+        rats.push(new Rat());
+        lastSpawn = timestamp;
+        spawnRate = Math.max(600, 1500 - (score * 10));
+      }
+    }
+
+    function startGame() {
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      score = 0;
+      scoreEl.textContent = score;
+      rats = [];
+      gameRunning = true;
+      requestAnimationFrame(gameLoop);
+    }
+
+    function restartGame() {
+      startGame();
+    }
+
+    function endGame() {
+      gameRunning = false;
+      gameOverScreen.classList.remove('hidden');
+      finalScoreEl.textContent = score;
+      commentEl.textContent = getComment(score);
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (!gameRunning) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      for (let i = rats.length - 1; i >= 0; i--) {
+        const r = rats[i];
+        const dx = mouseX - r.x;
+        const dy = mouseY - r.y;
+        if (Math.sqrt(dx * dx + dy * dy) < r.size) {
+          rats.splice(i, 1);
+          score++;
+          scoreEl.textContent = score;
+          break;
+        }
+      }
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const mouseX = touch.clientX - rect.left;
+      const mouseY = touch.clientY - rect.top;
+
+      for (let i = rats.length - 1; i >= 0; i--) {
+        const r = rats[i];
+        const dx = mouseX - r.x;
+        const dy = mouseY - r.y;
+        if (Math.sqrt(dx * dx + dy * dy) < r.size + 10) {
+          rats.splice(i, 1);
+          score++;
+          scoreEl.textContent = score;
+          break;
+        }
+      }
+    }, { passive: false });
+
+    function gameLoop(timestamp) {
+      if (!gameRunning) return;
+
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Cheese
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.arc(cheese.x, cheese.y, cheese.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(cheese.x - 3, cheese.y - 2, 2, 0, Math.PI * 2);
+      ctx.arc(cheese.x + 4, cheese.y + 2, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      spawnRat(timestamp);
+
+      for (let i = rats.length - 1; i >= 0; i--) {
+        rats[i].update();
+        rats[i].draw();
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
