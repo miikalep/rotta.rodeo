@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>JUUSTOVARKAAT - ROTTA.RODEO</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+    
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      overflow: hidden;
+    }
+    
+    h1 {
+      font-size: 3rem;
+      letter-spacing: 8px;
+      color: #ffcc00;
+      text-shadow: 0 0 10px #ffcc0066;
+      margin-bottom: 10px;
+    }
+    
+    .score {
+      font-size: 1.5rem;
+      color: #888;
+      margin-bottom: 15px;
+    }
+    
+    #gameCanvas {
+      border: 2px solid #333;
+      background: #1a1a1a;
+      max-width: 100%;
+      image-rendering: pixelated;
+    }
+    
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 5px;
+      margin-top: 20px;
+    }
+    
+    .btn {
+      background: #1a1a1a;
+      border: 2px solid #333;
+      color: #888;
+      font-size: 2rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.1s;
+    }
+    
+    .btn:active {
+      background: #333;
+      border-color: #ffcc00;
+      color: #ffcc00;
+    }
+    
+    .btn-empty {
+      visibility: hidden;
+    }
+    
+    .overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      padding: 40px;
+      border: 2px solid #ffcc00;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      z-index: 10;
+    }
+    
+    .overlay h2 {
+      color: #ffcc00;
+      font-size: 2rem;
+    }
+    
+    .overlay p {
+      color: #666;
+      font-size: 1.2rem;
+    }
+    
+    .btn-action {
+      background: #ffcc00;
+      color: #0a0a0a;
+      border: none;
+      padding: 15px 40px;
+      font-family: inherit;
+      font-size: 1.5rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+    .container {
+      position: relative;
+    }
+
+    #gameOver {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>JUUSTOVARKAAT</h1>
+  <div class="score">JUUSTOT: <span id="score">0</span> / 5</div>
+  
+  <div class="container">
+    <canvas id="gameCanvas" width="320" height="320"></canvas>
+    
+    <div class="overlay" id="startScreen">
+      <h2>VALMIINA?</h2>
+      <p>Ryöstä juustot ennen muita rottia!</p>
+      <button class="btn-action" onclick="startGame()">ALOITA</button>
+    </div>
+    
+    <div class="overlay" id="gameOver">
+      <h2 id="resultTitle">GAME OVER</h2>
+      <p id="resultText"></p>
+      <button class="btn-action" onclick="restartGame()">UUDESTAAN</button>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="move(0,-1)" onclick="move(0,-1)">▲</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="move(-1,0)" onclick="move(-1,0)">◀</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="move(1,0)" onclick="move(1,0)">▶</div>
+    <div class="btn btn-empty"></div>
+    <div class="btn" ontouchstart="move(0,1)" onclick="move(0,1)">▼</div>
+    <div class="btn btn-empty"></div>
+  </div>
+  
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const gameOverEl = document.getElementById('gameOver');
+    const startScreenEl = document.getElementById('startScreen');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultText = document.getElementById('resultText');
+    
+    const CELL_SIZE = 32;
+    const GRID_SIZE = 10;
+    
+    let player = { x: 0, y: 0, color: '#888' };
+    let rivals = [];
+    let cheesePieces = [];
+    let gameRunning = false;
+    let score = 0;
+    const WIN_SCORE = 5;
+
+    function initGame() {
+      score = 0;
+      scoreEl.textContent = score;
+      player = { x: 0, y: 0, color: '#aaa' };
+      
+      // Rivals
+      rivals = [
+        { x: 9, y: 9, color: '#555', target: null },
+        { x: 9, y: 0, color: '#444', target: null },
+        { x: 0, y: 9, color: '#666', target: null }
+      ];
+      
+      spawnCheese();
+      draw();
+    }
+
+    function spawnCheese() {
+      cheesePieces = [];
+      for (let i = 0; i < 3; i++) {
+        cheesePieces.push({
+          x: Math.floor(Math.random() * GRID_SIZE),
+          y: Math.floor(Math.random() * GRID_SIZE)
+        });
+      }
+    }
+
+    function move(dx, dy) {
+      if (!gameRunning) return;
+      
+      const newX = player.x + dx;
+      const newY = player.y + dy;
+      
+      if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE) {
+        player.x = newX;
+        player.y = newY;
+        checkCollision();
+        updateRivals();
+        draw();
+      }
+    }
+
+    function checkCollision() {
+      // Collect cheese
+      cheesePieces.forEach((c, index) => {
+        if (player.x === c.x && player.y === c.y) {
+          score++;
+          scoreEl.textContent = score;
+          cheesePieces.splice(index, 1);
+          if (cheesePieces.length < 1) spawnCheese();
+          if (score >= WIN_SCORE) winGame();
+        }
+      });
+    }
+
+    function updateRivals() {
+      rivals.forEach(r => {
+        // Simple AI: move towards closest cheese
+        let target = cheesePieces[0];
+        if (!target) return;
+        
+        const dx = target.x - r.x;
+        const dy = target.y - r.y;
+        
+        if (Math.abs(dx) > Math.abs(dy)) {
+          r.x += Math.sign(dx);
+        } else if (dy !== 0) {
+          r.y += Math.sign(dy);
+        }
+        
+        // Rival collects cheese
+        cheesePieces.forEach((c, index) => {
+          if (r.x === c.x && r.y === c.y) {
+            cheesePieces.splice(index, 1);
+            if (cheesePieces.length < 1) spawnCheese();
+          }
+        });
+
+        // Rival catches player
+        if (r.x === player.x && r.y === player.y) {
+          loseGame();
+        }
+      });
+    }
+
+    function draw() {
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Grid
+      ctx.strokeStyle = '#222';
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        ctx.beginPath(); ctx.moveTo(i * CELL_SIZE, 0); ctx.lineTo(i * CELL_SIZE, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i * CELL_SIZE); ctx.lineTo(canvas.width, i * CELL_SIZE); ctx.stroke();
+      }
+
+      // Cheese
+      ctx.fillStyle = '#ffcc00';
+      cheesePieces.forEach(c => {
+        ctx.beginPath();
+        ctx.arc(c.x * CELL_SIZE + CELL_SIZE/2, c.y * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Rivals
+      rivals.forEach(r => {
+        ctx.fillStyle = r.color;
+        ctx.beginPath();
+        ctx.roundRect(r.x * CELL_SIZE + 4, r.y * CELL_SIZE + 4, CELL_SIZE - 8, CELL_SIZE - 8, 4);
+        ctx.fill();
+      });
+
+      // Player
+      ctx.fillStyle = player.color;
+      ctx.beginPath();
+      ctx.roundRect(player.x * CELL_SIZE + 2, player.y * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4, 6);
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle = 'red';
+      ctx.fillRect(player.x * CELL_SIZE + 8, player.y * CELL_SIZE + 10, 4, 4);
+      ctx.fillRect(player.x * CELL_SIZE + 20, player.y * CELL_SIZE + 10, 4, 4);
+    }
+
+    function startGame() {
+      startScreenEl.style.display = 'none';
+      gameOverEl.style.display = 'none';
+      gameRunning = true;
+      initGame();
+    }
+
+    function winGame() {
+      gameRunning = false;
+      resultTitle.textContent = 'VOITTO!';
+      resultTitle.style.color = '#ffcc00';
+      resultText.textContent = 'Olet keittiön kuningasrotta!';
+      gameOverEl.style.display = 'flex';
+    }
+
+    function loseGame() {
+      gameRunning = false;
+      resultTitle.textContent = 'KIIDYTTÄYTTYI';
+      resultTitle.style.color = '#ff4444';
+      resultText.textContent = 'Toinen rotta työnnössi tai ryösti juostosi!';
+      gameOverEl.style.display = 'flex';
+    }
+
+    function restartGame() {
+      startGame();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp' || e.key === 'w') move(0, -1);
+      if (e.key === 'ArrowDown' || e.key === 's') move(0, 1);
+      if (e.key === 'ArrowLeft' || e.key === 'a') move(-1, 0);
+      if (e.key === 'ArrowRight' || e.key === 'd') move(1, 0);
+    });
+
+    initGame();
+  </script>
+</body>
+</html>
