@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>VARASTOROTTA</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+      user-select: none;
+    }
+    
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      color: #ffcc00;
+      text-shadow: 0 0 10px #ffcc0066;
+      margin-bottom: 5px;
+    }
+    
+    .info {
+      font-size: 1.2rem;
+      color: #888;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    
+    #gameCanvas {
+      background: #111;
+      border: 2px solid #333;
+      border-radius: 8px;
+    }
+    
+    .screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      padding: 30px;
+      border: 2px solid #ffcc00;
+      text-align: center;
+      z-index: 10;
+      border-radius: 10px;
+      width: 300px;
+    }
+    
+    .screen h2 {
+      color: #ffcc00;
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+    
+    .screen p {
+      color: #888;
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+    
+    .btn {
+      background: #ffcc00;
+      color: #0a0a0a;
+      border: none;
+      padding: 12px 30px;
+      font-family: inherit;
+      font-size: 1.5rem;
+      cursor: pointer;
+      border-radius: 4px;
+      width: 100%;
+      margin-top: 10px;
+    }
+    
+    .container {
+      position: relative;
+    }
+    
+    .inventory {
+      display: flex;
+      gap: 5px;
+      margin-top: 10px;
+    }
+    
+    .inv-slot {
+      width: 40px;
+      height: 40px;
+      background: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+    
+    .inv-slot.full {
+      border-color: #ffcc00;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .ctrl {
+      background: #1a1a1a;
+      border: 2px solid #333;
+      color: #888;
+      width: 60px;
+      height: 60px;
+      font-size: 2rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    
+    .ctrl:active {
+      background: #333;
+      color: #ffcc00;
+    }
+  </style>
+</head>
+<body>
+  <h1>VARASTOROTTA</h1>
+  <div class="info">Kerää 5 tavaraa ja palaa pesään!</div>
+  
+  <div class="container">
+    <canvas id="gameCanvas" width="360" height="400"></canvas>
+    
+    <div class="screen" id="startScreen">
+      <h2>LÄKKÄRI!</h2>
+      <p>Tunkeudu taloon, nouki tavarat ja palaa ulos! Varo valvontakameraa.</p>
+      <button class="btn" id="startBtn">SISÄÄN</button>
+    </div>
+    
+    <div class="screen" id="winScreen" style="display:none">
+      <h2>VOITTO!</h2>
+      <p>Rotta sai kaiken! Pesässä odottaa pimeä.</p>
+      <button class="btn" id="winRestartBtn">LÄHKERI LISÄÄ</button>
+    </div>
+    
+    <div class="screen" id="failScreen" style="display:none">
+      <h2>KINTTARIT tulvii!</h2>
+      <p>Valvonta nappasi sinut. Varovaisuus on rotan valttikortti.</p>
+      <p>Tavaroita: <span id="failScore">0</span>/5</p>
+      <button class="btn" id="failRestartBtn">YRITÄ UUDESTAAN</button>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <button class="ctrl" ontouchstart="move(-1,0)" onclick="move(-1,0)">◀</button>
+    <button class="ctrl" ontouchstart="move(0,-1)" onclick="move(0,-1)">▲</button>
+    <button class="ctrl" ontouchstart="move(0,1)" onclick="move(0,1)">▼</button>
+    <button class="ctrl" ontouchstart="move(1,0)" onclick="move(1,0)">▶</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startScreen = document.getElementById('startScreen');
+    const winScreen = document.getElementById('winScreen');
+    const failScreen = document.getElementById('failScreen');
+    
+    const COLS = 12;
+    const ROWS = 13;
+    const CELL_W = canvas.width / COLS;
+    const CELL_H = canvas.height / ROWS;
+    
+    const FLOOR = 0, WALL = 1, DOOR = 2, EXIT = 3, CAMERA = 4, ITEM = 5;
+    
+    let map = [];
+    let player = { x: 1, y: 1 };
+    let items = [];
+    let inventory = 0;
+    let alertLevel = 0;
+    let gameRunning = false;
+    let inHouse = true;
+    
+    const itemEmojis = ['💎', '💰', '📱', '🥇', '🍪'];
+    
+    const level = [
+      "WWWWWWWWWWWWW",
+      "W..........W",
+      "W.WWW.WWWW.W",
+      "W.W....I..EW",
+      "W.W.WWWW.W.W",
+      "W....I.....W",
+      "W.WWW.W.WWW.W",
+      "W.I..C..I..W",
+      "W.WWW.WWW.W.W",
+      "W...........W",
+      "W.WWWWWWWW.WW",
+      "WD..........W",
+      "WWWWWWWWWWWWW"
+    ];
+    
+    function initLevel() {
+      map = [];
+      items = [];
+      inventory = 0;
+      alertLevel = 0;
+      inHouse = true;
+      
+      for (let r = 0; r < ROWS; r++) {
+        map[r] = [];
+        for (let c = 0; c < COLS; c++) {
+          const ch = level[r][c];
+          if (ch === 'W') map[r][c] = WALL;
+          else if (ch === 'D') map[r][c] = DOOR;
+          else if (ch === 'E') map[r][c] = EXIT;
+          else if (ch === 'C') map[r][c] = CAMERA;
+          else if (ch === 'I') map[r][c] = ITEM;
+          else map[r][c] = FLOOR;
+        }
+      }
+      
+      // Place items
+      const itemPositions = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (map[r][c] === ITEM) itemPositions.push({ x: c, y: r });
+        }
+      }
+      itemPositions.forEach((pos, i) => {
+        items.push({ x: pos.x, y: pos.y, collected: false, emoji: itemEmojis[i] || '💎' });
+      });
+      
+      player = { x: 1, y: 11 };
+    }
+    
+    function move(dx, dy) {
+      if (!gameRunning) return;
+      
+      const nx = player.x + dx;
+      const ny = player.y + dy;
+      
+      if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) return;
+      if (map[ny][nx] === WALL) return;
+      
+      // Moving through door
+      if (map[ny][nx] === DOOR && inHouse) {
+        inHouse = false;
+      }
+      
+      player.x = nx;
+      player.y = ny;
+      
+      // Check exit with items
+      if (map[ny][nx] === EXIT && inventory >= 5) {
+        winGame();
+        return;
+      }
+      
+      // Check items
+      const item = items.find(i => !i.collected && i.x === nx && i.y === ny);
+      if (item && inventory < 5) {
+        item.collected = true;
+        inventory++;
+      }
+      
+      // Check camera
+      if (map[ny][nx] === CAMERA) {
+        alertLevel++;
+        if (alertLevel >= 3) {
+          failGame();
+          return;
+        }
+      }
+      
+      draw();
+    }
+    
+    function winGame() {
+      gameRunning = false;
+      winScreen.style.display = 'block';
+    }
+    
+    function failGame() {
+      gameRunning = false;
+      failScreen.style.display = 'block';
+      document.getElementById('failScore').textContent = inventory;
+    }
+    
+    function draw() {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const x = c * CELL_W;
+          const y = r * CELL_H;
+          
+          const cell = map[r][c];
+          
+          if (cell === WALL) {
+            ctx.fillStyle = '#333';
+            ctx.fillRect(x, y, CELL_W, CELL_H);
+            ctx.strokeStyle = '#444';
+            ctx.strokeRect(x + 2, y + 2, CELL_W - 4, CELL_H - 4);
+          } else if (cell === DOOR) {
+            ctx.fillStyle = '#664422';
+            ctx.fillRect(x, y, CELL_W, CELL_H);
+            ctx.fillStyle = '#886633';
+            ctx.fillRect(x + 5, y + 5, CELL_W - 10, CELL_H - 10);
+          } else if (cell === EXIT) {
+            ctx.fillStyle = '#225522';
+            ctx.fillRect(x, y, CELL_W, CELL_H);
+            ctx.fillStyle = '#ffcc00';
+            ctx.fillRect(x + 10, y + 10, CELL_W - 20, CELL_H - 20);
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px VT323';
+            ctx.fillText('EXIT', x + 8, y + CELL_H - 8);
+          } else if (cell === CAMERA) {
+            ctx.fillStyle = alertLevel >= 2 ? '#ff4444' : '#aa2222';
+            ctx.fillRect(x, y, CELL_W, CELL_H);
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px sans-serif';
+            ctx.fillText('📷', x + 8, y + CELL_H - 8);
+          } else {
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(x, y, CELL_W, CELL_H);
+          }
+        }
+      }
+      
+      // Draw items
+      items.forEach(item => {
+        if (!item.collected) {
+          ctx.fillStyle = '#ffcc00';
+          ctx.fillRect(item.x * CELL_W, item.y * CELL_H, CELL_W, CELL_H);
+          ctx.font = '20px sans-serif';
+          ctx.fillText(item.emoji, item.x * CELL_W + 10, item.y * CELL_H + CELL_H - 8);
+        }
+      });
+      
+      // Alert indicator
+      if (alertLevel > 0) {
+        ctx.fillStyle = alertLevel >= 2 ? '#ff0000' : '#ff6600';
+        ctx.fillRect(canvas.width - 10, 0, 10, canvas.height * (alertLevel / 3));
+      }
+      
+      // Draw player
+      ctx.fillStyle = '#666';
+      ctx.beginPath();
+      ctx.arc(player.x * CELL_W + CELL_W/2, player.y * CELL_H + CELL_H/2, CELL_W/2 - 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ff3333';
+      ctx.beginPath();
+      ctx.arc(player.x * CELL_W + CELL_W/2 - 4, player.y * CELL_H + CELL_H/2 - 2, 3, 0, Math.PI * 2);
+      ctx.arc(player.x * CELL_W + CELL_W/2 + 4, player.y * CELL_H + CELL_H/2 - 2, 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inventory
+      ctx.fillStyle = '#222';
+      ctx.fillRect(0, canvas.height, canvas.width, 50);
+      ctx.fillStyle = '#ffcc00';
+      ctx.font = '24px VT323';
+      ctx.fillText('Tavarat: ' + inventory + '/5', 10, canvas.height + 35);
+    }
+    
+    function startGame() {
+      startScreen.style.display = 'none';
+      winScreen.style.display = 'none';
+      failScreen.style.display = 'none';
+      initLevel();
+      gameRunning = true;
+      draw();
+    }
+    
+    canvas.addEventListener('click', (e) => {
+      if (!gameRunning) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const cellX = Math.floor(mx / (rect.width / COLS));
+      const cellY = Math.floor(my / (rect.height / ROWS));
+      
+      const dx = cellX - player.x;
+      const dy = cellY - player.y;
+      
+      if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 1 : -1, 0);
+      else if (dy !== 0) move(0, dy > 0 ? 1 : -1);
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      switch(e.key) {
+        case 'ArrowUp': move(0, -1); break;
+        case 'ArrowDown': move(0, 1); break;
+        case 'ArrowLeft': move(-1, 0); break;
+        case 'ArrowRight': move(1, 0); break;
+      }
+    });
+    
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('winRestartBtn').addEventListener('click', startGame);
+    document.getElementById('failRestartBtn').addEventListener('click', startGame);
+  </script>
+</body>
+</html>
