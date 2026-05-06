@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ROTAN LOIKKA</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+      user-select: none;
+    }
+    
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      color: #ffcc00;
+      text-shadow: 0 0 10px #ffcc0066;
+      margin-bottom: 10px;
+    }
+    
+    .score {
+      font-size: 1.5rem;
+      color: #888;
+      margin-bottom: 15px;
+    }
+    
+    #gameCanvas {
+      background: #111;
+      border: 2px solid #333;
+      border-radius: 8px;
+    }
+    
+    .screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      padding: 30px;
+      border: 2px solid #ffcc00;
+      text-align: center;
+      z-index: 10;
+      border-radius: 10px;
+    }
+    
+    .screen h2 {
+      color: #ffcc00;
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+    
+    .screen p {
+      color: #888;
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+    
+    .btn {
+      background: #ffcc00;
+      color: #0a0a0a;
+      border: none;
+      padding: 12px 30px;
+      font-family: inherit;
+      font-size: 1.5rem;
+      cursor: pointer;
+      border-radius: 4px;
+      width: 100%;
+    }
+    
+    .container {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <h1>ROTAN LOIKKA</h1>
+  <div class="score">PISTEET: <span id="score">0</span></div>
+  
+  <div class="container">
+    <canvas id="gameCanvas" width="360" height="480"></canvas>
+    
+    <div class="screen" id="startScreen">
+      <h2>VALMIINA LOIKKAAN?</h2>
+      <p>Hyppi esteiden yli! Napauta näyttöä tai paina välilyöntiä.</p>
+      <button class="btn" id="startBtn">ALOITA</button>
+    </div>
+    
+    <div class="screen" id="gameOverScreen" style="display:none">
+      <h2>PUFF!</h2>
+      <p id="comment"></p>
+      <p>Pisteet: <span id="finalScore">0</span></p>
+      <button class="btn" id="restartBtn">UUDESTAAN</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const finalScoreEl = document.getElementById('finalScore');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const commentEl = document.getElementById('comment');
+    
+    const GRAVITY = 0.6;
+    const JUMP_FORCE = -11;
+    const PIPE_SPEED = 3;
+    const PIPE_GAP = 160;
+    const PIPE_WIDTH = 60;
+    const PIPE_SPACING = 220;
+    
+    let bird = { x: 80, y: 200, vy: 0 };
+    let pipes = [];
+    let score = 0;
+    let gameRunning = false;
+    let lastPipeX = 0;
+    
+    const comments = {
+      0: "Taitava lentäjä... ei.",
+      5: "Alkaa mennä paremmin!",
+      10: "Rotanlentäjä!",
+      15: "Kemikaalimies!",
+      20: "LEGENDO!",
+      25: "Tämä rotta lentää Liigassa!"
+    };
+    
+    function getComment(s) {
+      if (s >= 25) return comments[25];
+      if (s >= 20) return comments[20];
+      if (s >= 15) return comments[15];
+      if (s >= 10) return comments[10];
+      if (s >= 5) return comments[5];
+      return comments[0];
+    }
+    
+    function jump() {
+      if (!gameRunning) return;
+      bird.vy = JUMP_FORCE;
+    }
+    
+    function startGame() {
+      startScreen.style.display = 'none';
+      gameOverScreen.style.display = 'none';
+      
+      bird = { x: 80, y: canvas.height / 2, vy: 0 };
+      pipes = [];
+      score = 0;
+      scoreEl.textContent = score;
+      lastPipeX = canvas.width + 100;
+      
+      gameRunning = true;
+      requestAnimationFrame(gameLoop);
+    }
+    
+    function endGame() {
+      gameRunning = false;
+      gameOverScreen.style.display = 'block';
+      finalScoreEl.textContent = score;
+      commentEl.textContent = getComment(score);
+    }
+    
+    function update() {
+      // Bird physics
+      bird.vy += GRAVITY;
+      bird.y += bird.vy;
+      
+      // Ground collision
+      if (bird.y > canvas.height - 40) {
+        bird.y = canvas.height - 40;
+        bird.vy = 0;
+      }
+      
+      // Ceiling collision
+      if (bird.y < 0) {
+        bird.y = 0;
+        bird.vy = 0;
+      }
+      
+      // Move pipes
+      pipes.forEach(pipe => {
+        pipe.x -= PIPE_SPEED;
+        
+        // Check collision
+        if (bird.x + 20 > pipe.x && bird.x - 15 < pipe.x + PIPE_WIDTH) {
+          if (bird.y - 15 < pipe.top || bird.y + 15 > pipe.bottom) {
+            endGame();
+          }
+        }
+        
+        // Score
+        if (!pipe.scored && pipe.x + PIPE_WIDTH < bird.x) {
+          pipe.scored = true;
+          score++;
+          scoreEl.textContent = score;
+        }
+      });
+      
+      // Remove off-screen pipes
+      pipes = pipes.filter(p => p.x > -PIPE_WIDTH);
+      
+      // Spawn new pipes
+      const rightmost = pipes.length > 0 ? Math.max(...pipes.map(p => p.x)) : 0;
+      if (rightmost < canvas.width - PIPE_SPACING || pipes.length === 0) {
+        const gapY = 100 + Math.random() * (canvas.height - 250);
+        pipes.push({
+          x: canvas.width,
+          top: gapY - PIPE_GAP / 2,
+          bottom: gapY + PIPE_GAP / 2,
+          scored: false
+        });
+      }
+    }
+    
+    function draw() {
+      // Background
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Ground
+      ctx.fillStyle = '#222';
+      ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+      
+      // Pipes
+      pipes.forEach(pipe => {
+        // Top pipe
+        ctx.fillStyle = '#336633';
+        ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
+        ctx.fillStyle = '#448844';
+        ctx.fillRect(pipe.x + 5, 0, PIPE_WIDTH - 10, pipe.top);
+        
+        // Top cap
+        ctx.fillStyle = '#336633';
+        ctx.fillRect(pipe.x - 5, pipe.top - 20, PIPE_WIDTH + 10, 20);
+        
+        // Bottom pipe
+        ctx.fillStyle = '#336633';
+        ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, canvas.height - pipe.bottom);
+        ctx.fillStyle = '#448844';
+        ctx.fillRect(pipe.x + 5, pipe.bottom + 20, PIPE_WIDTH - 10, canvas.height - pipe.bottom - 20);
+        
+        // Bottom cap
+        ctx.fillStyle = '#336633';
+        ctx.fillRect(pipe.x - 5, pipe.bottom, PIPE_WIDTH + 10, 20);
+      });
+      
+      // Bird (rotta)
+      const bobble = Math.sin(Date.now() / 100) * 2;
+      const by = bird.y + bobble;
+      
+      // Body
+      ctx.fillStyle = '#666';
+      ctx.beginPath();
+      ctx.ellipse(bird.x, by, 20, 15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Ears
+      ctx.fillStyle = '#555';
+      ctx.beginPath();
+      ctx.arc(bird.x - 10, by - 12, 8, 0, Math.PI * 2);
+      ctx.arc(bird.x + 10, by - 12, 8, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Eyes
+      ctx.fillStyle = '#ff3333';
+      ctx.beginPath();
+      ctx.arc(bird.x - 5, by - 3, 4, 0, Math.PI * 2);
+      ctx.arc(bird.x + 5, by - 3, 4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Nose
+      ctx.fillStyle = '#ffaaaa';
+      ctx.beginPath();
+      ctx.ellipse(bird.x, by + 5, 5, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Whiskers
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(bird.x - 3, by + 6);
+      ctx.lineTo(bird.x - 25, by + 3);
+      ctx.moveTo(bird.x - 3, by + 8);
+      ctx.lineTo(bird.x - 25, by + 8);
+      ctx.moveTo(bird.x + 3, by + 6);
+      ctx.lineTo(bird.x + 25, by + 3);
+      ctx.moveTo(bird.x + 3, by + 8);
+      ctx.lineTo(bird.x + 25, by + 8);
+      ctx.stroke();
+    }
+    
+    function gameLoop() {
+      if (!gameRunning) return;
+      
+      update();
+      draw();
+      
+      requestAnimationFrame(gameLoop);
+    }
+    
+    // Controls
+    canvas.addEventListener('click', jump);
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      jump();
+    }, { passive: false });
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (!gameRunning && gameOverScreen.style.display !== 'block') {
+          startGame();
+        } else {
+          jump();
+        }
+      }
+    });
+    
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('restartBtn').addEventListener('click', startGame);
+  </script>
+</body>
+</html>
