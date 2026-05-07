@@ -43,43 +43,44 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      min-height: 0;
     }
     
     #gameFrame {
       flex: 1;
       border: none;
       width: 100%;
-      min-height: 0;
+      min-height: 200px;
+      max-height: calc(100vh - 180px);
     }
     
     nav {
       background: #111;
       border-top: 2px solid #333;
-      padding: 10px 5px;
+      padding: 12px 4px;
+      flex-shrink: 0;
     }
     
     .game-menu {
       display: flex;
       justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      max-width: 500px;
-      margin: 0 auto;
+      gap: 4px;
     }
     
     .menu-btn {
       background: #1a1a1a;
       border: 2px solid #333;
       color: #888;
-      padding: 8px 12px;
+      padding: 5px 6px;
       font-family: 'VT323', monospace;
-      font-size: 1.1rem;
+      font-size: 0.85rem;
       border-radius: 6px;
       cursor: pointer;
       transition: all 0.15s;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 3px;
+      white-space: nowrap;
     }
     
     .menu-btn:hover {
@@ -102,6 +103,7 @@
 <body>
   <header>
     <h1>ROTTA.RODEO</h1>
+    <div id="game-title" style="font-size: 1.2rem; color: #888; margin-top: 4px; letter-spacing: 2px;">—</div>
   </header>
   
   <div id="game-container">
@@ -110,12 +112,12 @@
   
   <nav>
     <div class="game-menu">
-      <button class="menu-btn" data-game="matopeli"><span class="menu-icon">🐍</span><span>Matopeli</span></button>
+      <button class="menu-btn" data-game="matopeli"><span class="menu-icon">🐍</span><span>Häntärotta</span></button>
       <button class="menu-btn" data-game="juustokiire"><span class="menu-icon">🧀</span><span>Juustokiire</span></button>
       <button class="menu-btn" data-game="juustonvartija"><span class="menu-icon">🛡️</span><span>Vartija</span></button>
       <button class="menu-btn" data-game="rotankymmenen"><span class="menu-icon">🎯</span><span>Kymppi</span></button>
       <button class="menu-btn" data-game="rotanloikka"><span class="menu-icon">🦅</span><span>Loikka</span></button>
-      <button class="menu-btn" data-game="varastorotta"><span class="menu-icon">🏠</span><span>Varas</span></button>
+      <button class="menu-btn" data-game="varastorotta"><span class="menu-icon">🏠</span><span>Varastorotta</span></button>
     </div>
   </nav>
 
@@ -138,6 +140,16 @@
       buttons.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.game === gameName);
       });
+      // Update game title in header
+      const titles = {
+        'matopeli': 'HÄNTÄROTTA',
+        'juustokiire': 'JUUSTOKIIRE',
+        'juustonvartija': 'JUUSTONVARTIJA',
+        'rotankymmenen': 'ROTAN KYMPPI',
+        'rotanloikka': 'ROTAN LOIKKA',
+        'varastorotta': 'VARASTOROTTA'
+      };
+      document.getElementById('game-title').textContent = titles[gameName] || '';
     }
     
     function randomGame() {

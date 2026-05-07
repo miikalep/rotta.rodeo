@@ -135,7 +135,6 @@
   </style>
 </head>
 <body>
-  <h1>JUUSTOKIIRE</h1>
   <div class="score">JUUSTOT: <span id="score">0</span></div>
   
   <div class="container">
@@ -245,17 +244,17 @@
         const dx = player.x - enemy.x;
         const dy = player.y - enemy.y;
         
-        if (Math.random() < 0.7) {
-          if (Math.abs(dx) > Math.abs(dy)) {
-            enemy.x += dx > 0 ? 1 : -1;
-          } else if (dy !== 0) {
-            enemy.y += dy > 0 ? 1 : -1;
-          }
-        } else {
-          if (dy !== 0) {
-            enemy.y += dy > 0 ? 1 : -1;
+        if (Math.random() < 0.35) {
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            enemy.x += dx > 0 ? 1 : (dx < 0 ? -1 : 0);
           } else {
-            enemy.x += dx > 0 ? 1 : -1;
+            enemy.y += dy > 0 ? 1 : (dy < 0 ? -1 : 0);
+          }
+        } else if (Math.random() < 0.6) {
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            enemy.y += dy > 0 ? 1 : (dy < 0 ? -1 : 0);
+          } else {
+            enemy.x += dx > 0 ? 1 : (dx < 0 ? -1 : 0);
           }
         }
       });
