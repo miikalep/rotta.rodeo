@@ -106,6 +106,18 @@
     #gameOver h2 {
       color: #ff4444;
     }
+
+    #gameOver .highscore {
+      color: #ffcc00;
+      font-size: 1.4rem;
+    }
+
+    #gameOver #newHighScore {
+      color: #ffcc00;
+      font-size: 1.6rem;
+      font-weight: bold;
+      text-shadow: 0 0 8px #ffcc00aa;
+    }
     
     .screen p {
       font-size: 1.3rem;
@@ -150,6 +162,8 @@
       <h2>NAAPPAUKSET</h2>
       <p id="gameOverMsg"></p>
       <p>Juuustoja: <span id="finalScore">0</span></p>
+      <p>ENNÄTYS: <span id="highScore">0</span></p>
+      <p id="newHighScore" style="display:none">UUSI ENNÄTYS!</p>
       <button class="btn-action" onclick="restartGame()">UUDESTAAN</button>
     </div>
   </div>
@@ -167,6 +181,28 @@
   </div>
   
   <script>
+    // Audio
+    let audioCtx;
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx.resume();
+    }
+    function playSound(freq, duration, type='square') {
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = 0.08;
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
@@ -174,7 +210,12 @@
     const gameOverEl = document.getElementById('gameOver');
     const startScreenEl = document.getElementById('startScreen');
     const gameOverMsgEl = document.getElementById('gameOverMsg');
-    
+    const highScoreEl = document.getElementById('highScore');
+    const newHighScoreEl = document.getElementById('newHighScore');
+
+    const HIGH_SCORE_KEY = 'rottarodeo_highscore_juustokiire';
+    let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+
     const GRID_SIZE = 16;
     const CELL_SIZE = canvas.width / GRID_SIZE;
     
@@ -187,6 +228,7 @@
     let moveDelay = 140;
     
     function startGame() {
+      ensureAudio();
       startScreenEl.classList.remove('active');
       gameOverEl.classList.remove('active');
       initGame();
@@ -264,6 +306,7 @@
       if (player.x === cheese.x && player.y === cheese.y) {
         score++;
         scoreEl.textContent = score;
+        playSound(523, 0.1, 'sine');
         spawnCheese();
         if (score % 3 === 0 && enemies.length < 8) {
           spawnEnemy();
@@ -337,10 +380,20 @@
     }
     
     function gameOver() {
+      playSound(150, 0.4, 'sawtooth');
       gameRunning = false;
       gameOverEl.classList.add('active');
       finalScoreEl.textContent = score;
-      
+
+      let isNewHigh = false;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem(HIGH_SCORE_KEY, highScore);
+        isNewHigh = true;
+      }
+      highScoreEl.textContent = highScore;
+      newHighScoreEl.style.display = isNewHigh ? 'block' : 'none';
+
       const msgs = score === 0 
         ? "Ei yhtään juustoa! Harjoittele lisää."
         : score < 5 

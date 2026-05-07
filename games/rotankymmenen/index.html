@@ -129,6 +129,18 @@
       font-size: 1.3rem;
       margin-bottom: 10px;
     }
+
+    #gameOverScreen .highscore {
+      color: #ffcc00;
+      font-size: 1.4rem;
+    }
+
+    #gameOverScreen #newHighScore {
+      color: #ffcc00;
+      font-size: 1.6rem;
+      font-weight: bold;
+      text-shadow: 0 0 8px #ffcc00aa;
+    }
   </style>
 </head>
 <body>
@@ -152,11 +164,35 @@
       <h2 id="endTitle">AIKAA!</h2>
       <div id="comment"></div>
       <p>Osuit <span id="finalScore">0</span>/10 rottaan</p>
+      <p>ENNÄTYS: <span id="highScore">0</span></p>
+      <p id="newHighScore" style="display:none">UUSI ENNÄTYS!</p>
       <button class="btn" onclick="restartGame()">YRITÄ UUDELLEEN</button>
     </div>
   </div>
 
   <script>
+    // Audio
+    let audioCtx;
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx.resume();
+    }
+    function playSound(freq, duration, type='square') {
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = 0.08;
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
@@ -166,6 +202,11 @@
     const commentEl = document.getElementById('comment');
     const endTitle = document.getElementById('endTitle');
     const timerFill = document.getElementById('timerFill');
+    const highScoreEl = document.getElementById('highScore');
+    const newHighScoreEl = document.getElementById('newHighScore');
+
+    const HIGH_SCORE_KEY = 'rottarodeo_highscore_rotankymmenen';
+    let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
 
     const INITIAL_TIME = 8000;
     const TIME_BONUS = 700;
@@ -251,6 +292,7 @@
     }
 
     function startGame() {
+      ensureAudio();
       startScreen.classList.add('hidden');
       gameOverScreen.classList.add('hidden');
       score = 0;
@@ -274,6 +316,15 @@
       endTitle.style.color = won ? '#ffcc00' : '#ff4444';
       commentEl.textContent = won ? getRandom(comments.win) : 
         score >= 7 ? getRandom(comments.close) : getRandom(comments.fail);
+
+      let isNewHigh = false;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem(HIGH_SCORE_KEY, highScore);
+        isNewHigh = true;
+      }
+      highScoreEl.textContent = highScore;
+      newHighScoreEl.style.display = isNewHigh ? 'block' : 'none';
     }
 
     function handleClick(mouseX, mouseY) {
@@ -284,8 +335,13 @@
             score++;
             scoreEl.textContent = score;
             remainingTime += TIME_BONUS;
-            if (score >= TARGET_SCORE) { endGame(true); return; }
+            playSound(500, 0.1, 'sine');
+            if (score >= TARGET_SCORE) {
+              playSound(440, 0.1); setTimeout(() => playSound(660, 0.1), 100);
+              endGame(true); return;
+            }
           } else {
+            playSound(150, 0.2, 'sawtooth');
             remainingTime -= 800;
           }
           animals.splice(i, 1);

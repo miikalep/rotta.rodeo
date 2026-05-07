@@ -6,14 +6,14 @@
   <title>VARASTOROTTA</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
-    
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
       touch-action: manipulation;
     }
-    
+
     body {
       background: #0a0a0a;
       color: #e0e0e0;
@@ -23,9 +23,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      padding: 10px;
       overflow: hidden;
     }
-    
+
     .stats {
       font-size: 1.5rem;
       color: #888;
@@ -33,19 +34,51 @@
       display: flex;
       gap: 20px;
     }
-    
+
     .danger-meter {
       color: #ff4444;
     }
-    
+
     #gameCanvas {
       background: #111;
       border: 2px solid #333;
       border-radius: 8px;
       max-width: 100%;
-      cursor: none;
     }
-    
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 56px);
+      grid-template-rows: repeat(3, 56px);
+      gap: 5px;
+      margin-top: 15px;
+    }
+
+    .dbtn {
+      background: #1a1a1a;
+      border: 2px solid #333;
+      color: #888;
+      font-size: 1.8rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.1s;
+    }
+
+    .dbtn:active {
+      background: #333;
+      border-color: #ffcc00;
+      color: #ffcc00;
+    }
+
+    .dbtn-empty {
+      visibility: hidden;
+    }
+
     .screen {
       position: absolute;
       top: 0;
@@ -63,20 +96,20 @@
       border-radius: 8px;
       z-index: 20;
     }
-    
+
     .screen h2 {
       color: #ffcc00;
       font-size: 2rem;
       margin-bottom: 10px;
     }
-    
+
     .screen p {
       color: #666;
       font-size: 1.3rem;
       margin-bottom: 20px;
       max-width: 280px;
     }
-    
+
     .btn {
       background: #ffcc00;
       color: #0a0a0a;
@@ -88,22 +121,34 @@
       border-radius: 4px;
       transition: all 0.2s;
     }
-    
+
     .btn:hover {
       background: #ffdd33;
     }
-    
+
+    #gameOverScreen .highscore {
+      color: #ffcc00;
+      font-size: 1.4rem;
+    }
+
+    #gameOverScreen #newHighScore {
+      color: #ffcc00;
+      font-size: 1.6rem;
+      font-weight: bold;
+      text-shadow: 0 0 8px #ffcc00aa;
+    }
+
     .hidden {
       display: none;
     }
-    
+
     #comment {
       color: #888;
       font-size: 1.3rem;
       margin-bottom: 15px;
       font-style: italic;
     }
-    
+
     #game-container {
       position: relative;
       display: flex;
@@ -119,23 +164,37 @@
       <span>MURUSET: <span id="score">0</span></span>
       <span class="danger-meter">PAKO: <span id="escape">100</span>%</span>
     </div>
-    
-    <canvas id="gameCanvas" width="320" height="400"></canvas>
-    
+
+    <canvas id="gameCanvas" width="320" height="320"></canvas>
+
     <!-- Start Screen -->
     <div id="startScreen" class="screen">
       <h2>SIVUUN!</h2>
-      <p>Ohjaa rottaa hiirellä.<br>Älä jää valokeilaan!</p>
+      <p>Ohjaa rottaa.<br>Älä jää valokeilaan!</p>
       <button class="btn" onclick="startGame()">ALOITA</button>
     </div>
-    
+
     <!-- Game Over Screen -->
     <div id="gameOverScreen" class="screen hidden">
       <h2 id="endTitle">KIINNI!</h2>
       <div id="comment"></div>
       <p>Keräsit <span id="finalScore">0</span> murusta</p>
+      <p>ENNÄTYS: <span id="highScore">0</span></p>
+      <p id="newHighScore" style="display:none">UUSI ENNÄTYS!</p>
       <button class="btn" onclick="restartGame()">UUDESTAAN</button>
     </div>
+  </div>
+
+  <div class="controls">
+    <div class="dbtn dbtn-empty"></div>
+    <div class="dbtn" ontouchstart="setDir(0,-1)" onclick="setDir(0,-1)">▲</div>
+    <div class="dbtn dbtn-empty"></div>
+    <div class="dbtn" ontouchstart="setDir(-1,0)" onclick="setDir(-1,0)">◀</div>
+    <div class="dbtn dbtn-empty"></div>
+    <div class="dbtn" ontouchstart="setDir(1,0)" onclick="setDir(1,0)">▶</div>
+    <div class="dbtn dbtn-empty"></div>
+    <div class="dbtn" ontouchstart="setDir(0,1)" onclick="setDir(0,1)">▼</div>
+    <div class="dbtn dbtn-empty"></div>
   </div>
 
   <script>
@@ -148,14 +207,47 @@
     const startScreen = document.getElementById('startScreen');
     const commentEl = document.getElementById('comment');
     const endTitle = document.getElementById('endTitle');
+    const highScoreEl = document.getElementById('highScore');
+    const newHighScoreEl = document.getElementById('newHighScore');
+
+    const HIGH_SCORE_KEY = 'rottarodeo_highscore_varastorotta';
+    let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+
+    // Audio
+    let audioCtx;
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx.resume();
+    }
+    function playSound(freq, duration, type='square') {
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = 0.08;
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
 
     let score = 0;
     let escapeChance = 100;
     let gameRunning = false;
     let mouseX = 160;
-    let mouseY = 200;
+    let mouseY = 160;
+    let playerDx = 0;
+    let playerDy = 0;
+    let useDpad = false;
+    let lastMoveTime = 0;
+    const MOVE_SPEED = 3;
     let crumbs = [];
     let flashlights = [];
+    let lastInLight = false;
 
     const CRUMB_COUNT = 5;
     const FLASH_COUNT = 2;
@@ -201,7 +293,7 @@
         this.y = Math.random() * canvas.height;
         this.angle = Math.random() * Math.PI * 2;
         this.speed = 0.01 + Math.random() * 0.015;
-        this.range = 120 + Math.random() * 60;
+        this.range = 100 + Math.random() * 50;
         this.width = 0.4 + Math.random() * 0.3;
       }
       update() {
@@ -211,11 +303,9 @@
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
-        
         const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, this.range);
         grad.addColorStop(0, 'rgba(255, 255, 200, 0.35)');
         grad.addColorStop(1, 'rgba(255, 255, 200, 0)');
-        
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.moveTo(0, 0);
@@ -229,12 +319,10 @@
         const dy = py - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > this.range) return false;
-        
         const angleToTarget = Math.atan2(dy, dx);
         let diff = angleToTarget - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
-        
         return Math.abs(diff) < this.width;
       }
     }
@@ -247,14 +335,22 @@
     }
 
     function startGame() {
+      ensureAudio();
       startScreen.classList.add('hidden');
       gameOverScreen.classList.add('hidden');
       score = 0;
       escapeChance = 100;
+      mouseX = canvas.width / 2;
+      mouseY = canvas.height / 2;
+      playerDx = 0;
+      playerDy = 0;
       scoreEl.textContent = score;
       escapeEl.textContent = escapeChance;
+      escapeEl.style.color = '#ff4444';
       init();
       gameRunning = true;
+      lastMoveTime = 0;
+      lastInLight = false;
       requestAnimationFrame(gameLoop);
     }
 
@@ -265,30 +361,73 @@
       gameOverScreen.classList.remove('hidden');
       finalScoreEl.textContent = score;
       commentEl.textContent = comments[Math.floor(Math.random() * comments.length)];
+      playSound(200, 0.3, 'sawtooth');
+
+      let isNewHigh = false;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem(HIGH_SCORE_KEY, highScore);
+        isNewHigh = true;
+      }
+      highScoreEl.textContent = highScore;
+      newHighScoreEl.style.display = isNewHigh ? 'block' : 'none';
     }
 
+    // D-pad controls
+    function setDir(dx, dy) {
+      if (!gameRunning) return;
+      useDpad = true;
+      playerDx = dx;
+      playerDy = dy;
+    }
+
+    // Mouse/touch on canvas
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
-      mouseX = e.clientX - rect.left;
-      mouseY = e.clientY - rect.top;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      mouseX = (e.clientX - rect.left) * scaleX;
+      mouseY = (e.clientY - rect.top) * scaleY;
+      useDpad = false;
     });
 
     canvas.addEventListener('touchmove', (e) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
       const touch = e.touches[0];
-      mouseX = touch.clientX - rect.left;
-      mouseY = touch.clientY - rect.top;
+      mouseX = (touch.clientX - rect.left) * scaleX;
+      mouseY = (touch.clientY - rect.top) * scaleY;
+      useDpad = false;
     }, { passive: false });
 
-    function gameLoop() {
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      switch(e.key) {
+        case 'ArrowUp': case 'w': case 'W': setDir(0, -1); break;
+        case 'ArrowDown': case 's': case 'S': setDir(0, 1); break;
+        case 'ArrowLeft': case 'a': case 'A': setDir(-1, 0); break;
+        case 'ArrowRight': case 'd': case 'D': setDir(1, 0); break;
+      }
+    });
+
+    function gameLoop(timestamp) {
       if (!gameRunning) return;
+
+      // D-pad movement
+      if (useDpad && (playerDx !== 0 || playerDy !== 0)) {
+        mouseX += playerDx * MOVE_SPEED;
+        mouseY += playerDy * MOVE_SPEED;
+        mouseX = Math.max(10, Math.min(canvas.width - 10, mouseX));
+        mouseY = Math.max(10, Math.min(canvas.height - 10, mouseY));
+      }
 
       ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       let inLight = false;
-      
+
       flashlights.forEach(f => {
         f.update();
         f.draw();
@@ -298,24 +437,32 @@
       });
 
       if (inLight) {
-        escapeChance -= 1;
+        escapeChance -= 0.8;
         if (escapeChance <= 0) {
           endGame();
           return;
         }
-        escapeEl.textContent = escapeChance;
+        escapeEl.textContent = Math.ceil(escapeChance);
         if (escapeChance < 30) {
           escapeEl.style.color = '#ff0000';
         } else if (escapeChance < 60) {
           escapeEl.style.color = '#ff8800';
         }
+        // Warning beep when in light
+        if (!lastInLight && Math.random() < 0.3) {
+          playSound(300, 0.05, 'sine');
+        }
+      } else {
+        escapeEl.style.color = '#ff4444';
       }
+      lastInLight = inLight;
 
       crumbs.forEach(c => {
         c.draw();
         if (c.contains(mouseX, mouseY)) {
           score++;
           scoreEl.textContent = score;
+          playSound(523, 0.08, 'sine');
           c.reset();
           if (score % 5 === 0 && flashlights.length < 5) {
             flashlights.push(new Flashlight());
@@ -323,6 +470,7 @@
         }
       });
 
+      // Draw rat
       ctx.fillStyle = '#777';
       ctx.beginPath();
       ctx.ellipse(mouseX, mouseY, 10, 6, 0, 0, Math.PI * 2);
