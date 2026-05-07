@@ -192,27 +192,16 @@
   </div>
   
   <script>
-    // Audio
-    let audioCtx;
-    function ensureAudio() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      audioCtx.resume();
-    }
-    function playSound(freq, duration, type='square') {
-      if (!audioCtx) return;
-      try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        gain.gain.value = 0.08;
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-      } catch(e) {}
-    }
+    let paused = false;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        paused = true;
+      } else {
+        paused = false;
+        lastTime = 0;
+        if (gameRunning) requestAnimationFrame(gameLoop);
+      }
+    });
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -289,7 +278,6 @@
     }
     
     function startGame() {
-      ensureAudio();
       startScreenEl.style.display = 'none';
       gameStarted = true;
       gameRunning = true;
@@ -333,7 +321,6 @@
       if (head.x === cheese.x && head.y === cheese.y) {
         score++;
         scoreEl.textContent = score;
-        playSound(440, 0.1, 'sine');
         spawnCheese();
         if (gameSpeed > 60) gameSpeed -= 2;
       } else {
@@ -430,6 +417,11 @@
     function gameLoop(timestamp) {
       if (!gameRunning) return;
       
+      if (paused) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+      
       if (timestamp - lastTime >= gameSpeed) {
         update();
         lastTime = timestamp;
@@ -440,7 +432,6 @@
     }
     
     function endGame() {
-      playSound(200, 0.3, 'sawtooth');
       gameRunning = false;
       finalScoreEl.textContent = score;
       commentEl.textContent = getComment(score);

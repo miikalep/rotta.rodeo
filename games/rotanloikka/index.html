@@ -124,27 +124,15 @@
   </div>
 
   <script>
-    // Audio
-    let audioCtx;
-    function ensureAudio() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      audioCtx.resume();
-    }
-    function playSound(freq, duration, type='square') {
-      if (!audioCtx) return;
-      try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        gain.gain.value = 0.08;
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-      } catch(e) {}
-    }
+    let paused = false;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        paused = true;
+      } else {
+        paused = false;
+        if (gameRunning) requestAnimationFrame(gameLoop);
+      }
+    });
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -196,7 +184,6 @@
     }
 
     function startGame() {
-      ensureAudio();
       startScreen.style.display = 'none';
       gameOverScreen.style.display = 'none';
 
@@ -211,7 +198,6 @@
     }
 
     function endGame() {
-      playSound(200, 0.3, 'sawtooth');
       gameRunning = false;
       gameOverScreen.style.display = 'block';
       finalScoreEl.textContent = score;
@@ -260,7 +246,6 @@
           pipe.scored = true;
           score++;
           scoreEl.textContent = score;
-          playSound(440, 0.1, 'sine');
         }
       });
 
@@ -359,6 +344,11 @@
 
     function gameLoop() {
       if (!gameRunning) return;
+
+      if (paused) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
 
       update();
       draw();

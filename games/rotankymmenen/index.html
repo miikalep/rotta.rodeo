@@ -171,27 +171,17 @@
   </div>
 
   <script>
-    // Audio
-    let audioCtx;
-    function ensureAudio() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      audioCtx.resume();
-    }
-    function playSound(freq, duration, type='square') {
-      if (!audioCtx) return;
-      try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        gain.gain.value = 0.08;
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-      } catch(e) {}
-    }
+    let paused = false;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        paused = true;
+      } else {
+        paused = false;
+        lastTimestamp = 0;
+        lastSpawn = 0;
+        if (gameRunning) requestAnimationFrame(gameLoop);
+      }
+    });
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -292,7 +282,6 @@
     }
 
     function startGame() {
-      ensureAudio();
       startScreen.classList.add('hidden');
       gameOverScreen.classList.add('hidden');
       score = 0;
@@ -335,13 +324,10 @@
             score++;
             scoreEl.textContent = score;
             remainingTime += TIME_BONUS;
-            playSound(500, 0.1, 'sine');
             if (score >= TARGET_SCORE) {
-              playSound(440, 0.1); setTimeout(() => playSound(660, 0.1), 100);
               endGame(true); return;
             }
           } else {
-            playSound(150, 0.2, 'sawtooth');
             remainingTime -= 800;
           }
           animals.splice(i, 1);
@@ -364,6 +350,11 @@
 
     function gameLoop(timestamp) {
       if (!gameRunning) return;
+
+      if (paused) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
 
       const dt = timestamp - lastTimestamp;
       lastTimestamp = timestamp;

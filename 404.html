@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — ROTTA.RODEO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐀</text></svg>">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'VT323', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 4rem;
+      letter-spacing: 6px;
+      color: #ffcc00;
+      text-shadow: 0 0 10px #ffcc0066;
+      margin-bottom: 20px;
+    }
+    .rat {
+      font-size: 6rem;
+      margin-bottom: 20px;
+      animation: float 2s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
+    }
+    p {
+      font-size: 1.5rem;
+      color: #888;
+      margin-bottom: 30px;
+      line-height: 1.4;
+    }
+    a {
+      display: inline-block;
+      background: #ffcc00;
+      color: #0a0a0a;
+      text-decoration: none;
+      padding: 15px 40px;
+      font-size: 1.5rem;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    a:hover {
+      background: #ffdd33;
+    }
+    .footer {
+      margin-top: 40px;
+      font-size: 1rem;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+  <div class="rat">🐀</div>
+  <h1>404</h1>
+  <p>Sivua ei löytynyt —<br>mutta rotat kyllä löytävät reitin.</p>
+  <a href="/">Takaisin ROTTA.RODEO:hon</a>
+  <div class="footer">rotta.rodeo</div>
+</body>
+</html>

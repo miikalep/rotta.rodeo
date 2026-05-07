@@ -181,27 +181,16 @@
   </div>
   
   <script>
-    // Audio
-    let audioCtx;
-    function ensureAudio() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      audioCtx.resume();
-    }
-    function playSound(freq, duration, type='square') {
-      if (!audioCtx) return;
-      try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        gain.gain.value = 0.08;
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-      } catch(e) {}
-    }
+    let paused = false;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        paused = true;
+      } else {
+        paused = false;
+        lastTime = 0;
+        if (gameRunning) requestAnimationFrame(gameLoop);
+      }
+    });
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -228,7 +217,6 @@
     let moveDelay = 140;
     
     function startGame() {
-      ensureAudio();
       startScreenEl.classList.remove('active');
       gameOverEl.classList.remove('active');
       initGame();
@@ -306,7 +294,6 @@
       if (player.x === cheese.x && player.y === cheese.y) {
         score++;
         scoreEl.textContent = score;
-        playSound(523, 0.1, 'sine');
         spawnCheese();
         if (score % 3 === 0 && enemies.length < 8) {
           spawnEnemy();
@@ -368,6 +355,11 @@
     function gameLoop(timestamp) {
       if (!gameRunning) return;
       
+      if (paused) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+      
       if (timestamp - lastTime >= moveDelay) {
         updatePlayer();
         updateEnemies();
@@ -380,7 +372,6 @@
     }
     
     function gameOver() {
-      playSound(150, 0.4, 'sawtooth');
       gameRunning = false;
       gameOverEl.classList.add('active');
       finalScoreEl.textContent = score;

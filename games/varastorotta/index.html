@@ -213,27 +213,16 @@
     const HIGH_SCORE_KEY = 'rottarodeo_highscore_varastorotta';
     let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
 
-    // Audio
-    let audioCtx;
-    function ensureAudio() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      audioCtx.resume();
-    }
-    function playSound(freq, duration, type='square') {
-      if (!audioCtx) return;
-      try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        gain.gain.value = 0.08;
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-      } catch(e) {}
-    }
+    let paused = false;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        paused = true;
+      } else {
+        paused = false;
+        lastMoveTime = 0;
+        if (gameRunning) requestAnimationFrame(gameLoop);
+      }
+    });
 
     let score = 0;
     let escapeChance = 100;
@@ -335,7 +324,6 @@
     }
 
     function startGame() {
-      ensureAudio();
       startScreen.classList.add('hidden');
       gameOverScreen.classList.add('hidden');
       score = 0;
@@ -361,7 +349,6 @@
       gameOverScreen.classList.remove('hidden');
       finalScoreEl.textContent = score;
       commentEl.textContent = comments[Math.floor(Math.random() * comments.length)];
-      playSound(200, 0.3, 'sawtooth');
 
       let isNewHigh = false;
       if (score > highScore) {
@@ -415,6 +402,11 @@
     function gameLoop(timestamp) {
       if (!gameRunning) return;
 
+      if (paused) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+
       // D-pad movement
       if (useDpad && (playerDx !== 0 || playerDy !== 0)) {
         mouseX += playerDx * MOVE_SPEED;
@@ -448,10 +440,6 @@
         } else if (escapeChance < 60) {
           escapeEl.style.color = '#ff8800';
         }
-        // Warning beep when in light
-        if (!lastInLight && Math.random() < 0.3) {
-          playSound(300, 0.05, 'sine');
-        }
       } else {
         escapeEl.style.color = '#ff4444';
       }
@@ -462,7 +450,6 @@
         if (c.contains(mouseX, mouseY)) {
           score++;
           scoreEl.textContent = score;
-          playSound(523, 0.08, 'sine');
           c.reset();
           if (score % 5 === 0 && flashlights.length < 5) {
             flashlights.push(new Flashlight());

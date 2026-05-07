@@ -4,10 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>ROTTA.RODEO</title>
+  <meta name="description" content="Rottateemaiset minipelit — häntärotta, juustokiire, varastorotta ja paljon muuta!">
+  <meta property="og:title" content="ROTTA.RODEO">
+  <meta property="og:description" content="Rottateemaiset minipelit — häntärotta, juustokiire, varastorotta ja paljon muuta!">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://rotta.rodeo">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="ROTTA.RODEO">
+  <meta name="twitter:description" content="Rottateemaiset minipelit — häntärotta, juustokiire, varastorotta ja paljon muuta!">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐀</text></svg>">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
-    
     * {
       margin: 0;
       padding: 0;
@@ -151,6 +160,8 @@
         'varastorotta': 'VARASTOROTTA'
       };
       document.getElementById('game-title').textContent = titles[gameName] || '';
+      // Update URL hash for deep linking
+      location.hash = gameName;
     }
     
     function randomGame() {
@@ -164,8 +175,27 @@
       });
     });
     
-    // Load random game on start
-    randomGame();
+    // Hash-based deep linking
+    function loadGameFromHash() {
+      const hash = location.hash.slice(1);
+      const validGames = ['matopeli', 'juustokiire', 'juustonvartija', 'rotankymmenen', 'rotanloikka', 'varastorotta'];
+      if (hash && validGames.includes(hash)) {
+        loadGame('games/' + hash + '/index.html');
+      } else {
+        randomGame();
+      }
+    }
+    
+    window.addEventListener('hashchange', () => {
+      const hash = location.hash.slice(1);
+      const currentGame = frame.src.split('/')[1];
+      if (hash && hash !== currentGame) {
+        loadGame('games/' + hash + '/index.html');
+      }
+    });
+    
+    // Load game from hash or random on start
+    loadGameFromHash();
   </script>
 </body>
 </html>
