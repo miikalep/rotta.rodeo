@@ -160,8 +160,7 @@
         'varastorotta': 'VARASTOROTTA'
       };
       document.getElementById('game-title').textContent = titles[gameName] || '';
-      // Update URL hash for deep linking
-      location.hash = gameName;
+
     }
     
     function randomGame() {
@@ -175,27 +174,8 @@
       });
     });
     
-    // Hash-based deep linking
-    function loadGameFromHash() {
-      const hash = location.hash.slice(1);
-      const validGames = ['matopeli', 'juustokiire', 'juustonvartija', 'rotankymmenen', 'rotanloikka', 'varastorotta'];
-      if (hash && validGames.includes(hash)) {
-        loadGame('games/' + hash + '/index.html');
-      } else {
-        randomGame();
-      }
-    }
-    
-    window.addEventListener('hashchange', () => {
-      const hash = location.hash.slice(1);
-      const currentGame = frame.src.split('/')[1];
-      if (hash && hash !== currentGame) {
-        loadGame('games/' + hash + '/index.html');
-      }
-    });
-    
-    // Load game from hash or random on start
-    loadGameFromHash();
+    // Random game on every load
+    randomGame();
   </script>
 </body>
 </html>
